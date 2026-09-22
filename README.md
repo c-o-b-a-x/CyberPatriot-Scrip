@@ -1,15 +1,18 @@
 # Cyber Hardening Toolkit
 
-This project provides a Windows local hardening and administration script for creating users, managing groups, reviewing local accounts, uninstalling applications, and applying baseline security settings.
+This script is basically a local Windows cleanup and hardening helper. It can create users, manage groups, check local accounts, uninstall software, apply common security changes, and help you review a machine for obvious problem areas.
 
-## Prerequisites
-- Windows machine with PowerShell
-- Administrator privileges
-- Execution policy can be adjusted if needed for local script use
+Think of it as a practical tool for someone who wants a faster starting point without blindly changing everything on a system.
 
-## Quick Setup
+## What you need
+- Windows machine
+- PowerShell
+- Administrator rights
+- A willingness to review anything risky before you let it run
+
+## Quick start
 1. Open PowerShell as Administrator.
-2. Run:
+2. If needed, allow local scripts to run:
    ```powershell
    Set-ExecutionPolicy Unrestricted -Scope LocalMachine
    ```
@@ -17,39 +20,66 @@ This project provides a Windows local hardening and administration script for cr
    ```powershell
    curl -L -O https://raw.githubusercontent.com/c-o-b-a-x/CyberPatriot-Scrip/refs/heads/main/CyberHardening.ps1
    ```
-4. Locate the downloaded file in your current directory or in the system folders, then sort by date modified if needed.
-5. Run the script:
+4. Find the file and run it:
    ```powershell
    .\CyberHardening.ps1
    ```
 
-## Notes
-- The script is intended for local Windows administration and hardening tasks.
-- Some actions require elevated administrator rights and may affect local system security settings.
-- Review the script before running it in production or on managed systems.
-- Use caution when creating or removing users, changing group membership, or uninstalling software.
+## A few important notes
+- This is meant for local Windows administration and hardening tasks.
+- Some actions need elevated privileges and can affect security settings.
+- Always review the script before running it on a production machine or anything important.
+- Be careful with user creation, group membership changes, and uninstalling software.
 
-## Included Features
-- local user creation and management
-- local group creation and membership control
-- application uninstallation helper
-- hardening checklist and baseline policy actions
-- file-type search utilities
-- console-based menu interface
+## What it can do
+- create local users
+- create local groups
+- add or remove users from groups
+- review approved vs. unapproved local accounts
+- disable unwanted accounts with a confirmation step
+- uninstall a list of applications
+- apply common hardening settings
+- search for files by type, such as media, archives, executables, and documents
+- scan installed software, startup items, and suspicious files
+- export a simple compliance report for review
+- give you a simple console menu instead of a GUI
 
-## What the Original Checklist This Script Does Not Fully Cover
-This script is a practical automation subset, not a complete replacement for every item in the original hardening checklist. Some areas are intentionally left for manual review or require environment-specific validation.
+## The menu
+When you launch it, you get a menu with options like:
+- create a local group
+- create a local user
+- add a user to a group
+- remove a user from a group
+- list local users
+- list local groups
+- run the hardening checklist
+- uninstall applications
+- search for file types
+- open the system audit and reporting menu
+- exit the tool
 
-The script does not fully automate the following items by default:
-- browser plug-ins, toolbars, and third-party add-ons review
-- Java, Flash, and Adobe plugin verification
-- manual validation of scheduled tasks and startup items
-- review of all Windows services not explicitly covered by the script
-- domain-specific or organization-specific policy exceptions
-- custom network firewall rules beyond the built-in baseline changes
-- full auditing of every registry key, GPO, or local policy drift scenario
-- any checklist item that depends on live user judgment or operational context
-- deep validation of every installed application, browser extension, or user profile setting
+## Audit and reporting
+The audit section is there to help you spot things that are easy to miss:
+- what software is installed
+- what is launching at startup
+- what suspicious files are sitting around in a folder
+- a simple report you can save for documentation or review
 
-In other words, the script automates the common local admin, security, and cleanup tasks, but it still expects an operator to manually confirm the parts of the checklist that are environment-sensitive, policy-specific, or not safe to automate broadly.
+This part is meant to support investigation, not silently change things without human review.
+
+## What this does not cover completely
+This is a useful automation tool, but it is not a full replacement for every item on a real hardening checklist. Some parts are left for manual review because they depend on the environment, business rules, or how a machine is actually being used.
+
+Things it does not fully automate by default include:
+- browser plugins, toolbars, and browser add-ons
+- Java, Flash, and Adobe plugin checks
+- deep review of every service or startup entry
+- domain-specific or org-specific policy exceptions
+- custom firewall rules beyond the built-in baseline changes
+- full auditing of every registry key, GPO, or policy drift issue
+- any checklist item that needs human judgment in context
+- detailed validation of every installed app or user profile setting
+- advanced incident-response cleanup beyond what is safe and useful for a local review tool
+
+So the script handles the common admin and cleanup work, but it still expects a person to check the sensitive or environment-specific parts before finalizing anything.
 

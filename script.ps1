@@ -390,7 +390,235 @@ function Show-CyberMenu {
     Write-Host '7. Run hardening checklist' -ForegroundColor Cyan
     Write-Host '8. Uninstall application list' -ForegroundColor Cyan
     Write-Host '9. Search file types' -ForegroundColor Cyan
-    Write-Host '10. Exit' -ForegroundColor Cyan
+    Write-Host '10. System audit & report' -ForegroundColor Cyan
+    Write-Host '11. Exit' -ForegroundColor Cyan
+}
+
+function Get-InstalledApplications {
+    $software = @()
+
+    try {
+        $software += Get-CimInstance Win32_Product -ErrorAction SilentlyContinue | Select-Object Name, Vendor, Version, InstallLocation
+    }
+    catch {
+        Write-Log 'Could not enumerate Win32_Product entries; falling back to registry uninstall data.' -Level 'WARN'
+    }
+
+    $registryPaths = @(
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall',
+        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
+    )
+
+    foreach ($path in $registryPaths) {
+        if (-not (Test-Path $path)) { continue }
+
+        $items = Get-ChildItem -Path $path -ErrorAction SilentlyContinue
+        foreach ($item in $items) {
+            $props = Get-ItemProperty -Path $item.PSPath -ErrorAction SilentlyContinue
+            if (-not $props) { continue }
+
+            $displayName = $props.DisplayName
+            if ([string]::IsNullOrWhiteSpace($displayName)) { continue }
+
+            $software += [PSCustomObject]@{
+                Name = $displayName
+                Vendor = $props.Publisher
+                Version = $props.DisplayVersion
+                InstallLocation = $props.InstallLocation
+            }
+        }
+    }
+
+    return $software | Sort-Object Name -Unique
+}
+
+function Get-StartupItems {
+    $items = @()
+
+    $runLocations = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run',
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce',
+        'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run',
+        'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce'
+    )
+
+    foreach ($path in $runLocations) {
+        if (-not (Test-Path $path)) { continue }
+
+        $props = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
+        if (-not $props) { continue }
+
+        foreach ($prop in $props.PSObject.Properties) {
+            if ($prop.Name -match 'PSPath|PSParentPath|PSChildName|PSDrive|PSProvider') { continue }
+            $items += [PSCustomObject]@{
+                Source = $path
+                Name = $prop.Name
+                Value = $prop.Value
+                Type = 'RegistryRunKey'
+            }
+        }
+    }
+
+    $startupFolder = [System.Environment]::GetFolderPath('CommonStartup')
+    if ($startupFolder -and (Test-Path $startupFolder)) {
+        Get-ChildItem -Path $startupFolder -File -ErrorAction SilentlyContinue | ForEach-Object {
+            $items += [PSCustomObject]@{
+                Source = $startupFolder
+                Name = $_.Name
+                Value = $_.FullName
+                Type = 'StartupFolder'
+            }
+        }
+    }
+
+    try {
+        Get-ScheduledTask -ErrorAction SilentlyContinue | ForEach-Object {
+            $items += [PSCustomObject]@{
+                Source = 'ScheduledTask'
+                Name = $_.TaskName
+                Value = $_.Actions.Execute
+                Type = 'ScheduledTask'
+            }
+        }
+    }
+    catch {
+        Write-Log 'Scheduled tasks are not available for inspection on this system.' -Level 'WARN'
+    }
+
+    return $items | Sort-Object Type, Name
+}
+
+function Get-SuspiciousFiles {
+    param(
+        [string]$RootPath = $env:USERPROFILE,
+        [string[]]$Extensions = @('exe', 'dll', 'bat', 'cmd', 'ps1', 'vbs', 'js', 'jar', 'com', 'scr', 'hta')
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RootPath)) {
+        $RootPath = $env:USERPROFILE
+    }
+
+    $root = $RootPath.Trim()
+    if (-not (Test-Path -LiteralPath $root)) {
+        throw "Path '$root' does not exist."
+    }
+
+    $extList = @()
+    foreach ($ext in $Extensions) {
+        if (-not [string]::IsNullOrWhiteSpace($ext)) {
+            $extList += $ext.Trim().TrimStart('.').ToLowerInvariant()
+        }
+    }
+
+    $results = Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object {
+            $ext = $_.Extension.TrimStart('.').ToLowerInvariant()
+            $extList -contains $ext
+        } |
+        Select-Object FullName, Extension, Length, LastWriteTime
+
+    return $results | Sort-Object FullName
+}
+
+function Export-ComplianceReport {
+    param(
+        [string]$OutputPath = (Join-Path $env:TEMP 'CyberHardening_Report.txt')
+    )
+
+    $apps = Get-InstalledApplications
+    $startup = Get-StartupItems
+    $suspicious = @()
+
+    try {
+        $suspicious = Get-SuspiciousFiles -RootPath $env:USERPROFILE
+    }
+    catch {
+        Write-Log 'Could not generate suspicious file report for the user profile.' -Level 'WARN'
+        $suspicious = @()
+    }
+
+    $report = @(
+        'Cyber Hardening Compliance Report',
+        "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
+        '',
+        'Installed Applications:',
+        ($apps | ForEach-Object { "- $($_.Name) [$($_.Version)] [$($_.Vendor)]" }) -join "`r`n",
+        '',
+        'Startup / AutoRun Items:',
+        ($startup | ForEach-Object { "- $($_.Type): $($_.Name) -> $($_.Value)" }) -join "`r`n",
+        '',
+        'Suspicious Files:',
+        ($suspicious | ForEach-Object { "- $($_.FullName) [$($_.Extension)]" }) -join "`r`n",
+        '',
+        'Summary:',
+        "Installed software count: $((Get-CountAsInt $apps))",
+        "Startup item count: $((Get-CountAsInt $startup))",
+        "Suspicious file count: $((Get-CountAsInt $suspicious))"
+    )
+
+    $reportText = $report -join "`r`n"
+    $reportText | Set-Content -Path $OutputPath -Encoding UTF8
+    Write-Log "Compliance report written to '$OutputPath'." -Level 'SUCCESS'
+    return $OutputPath
+}
+
+function Invoke-AssessmentMenu {
+    do {
+        Write-Section 'System Audit'
+        Write-Host '1. List installed software' -ForegroundColor Cyan
+        Write-Host '2. List startup and autorun items' -ForegroundColor Cyan
+        Write-Host '3. Scan suspicious files in user profile' -ForegroundColor Cyan
+        Write-Host '4. Generate compliance report' -ForegroundColor Cyan
+        Write-Host '5. Back to main menu' -ForegroundColor Cyan
+        $auditChoice = Read-Host 'Select an audit option'
+
+        switch ($auditChoice) {
+            '1' {
+                Write-Section 'Installed Software'
+                $apps = Get-InstalledApplications
+                if ((Get-CountAsInt $apps) -eq 0) {
+                    Write-Host 'No installed software was found.' -ForegroundColor Yellow
+                }
+                else {
+                    $apps | Select-Object Name, Vendor, Version, InstallLocation | Format-Table -AutoSize
+                }
+            }
+            '2' {
+                Write-Section 'Startup / Autorun Items'
+                $startup = Get-StartupItems
+                if ((Get-CountAsInt $startup) -eq 0) {
+                    Write-Host 'No startup items were found.' -ForegroundColor Yellow
+                }
+                else {
+                    $startup | Select-Object Type, Name, Value, Source | Format-Table -AutoSize
+                }
+            }
+            '3' {
+                $scanRoot = Read-Host 'Enter the folder to scan (default: user profile)'
+                if ([string]::IsNullOrWhiteSpace($scanRoot)) { $scanRoot = $env:USERPROFILE }
+                $suspicious = Get-SuspiciousFiles -RootPath $scanRoot
+                if ((Get-CountAsInt $suspicious) -eq 0) {
+                    Write-Host "No suspicious files found under '$scanRoot'." -ForegroundColor Yellow
+                }
+                else {
+                    $suspicious | Select-Object FullName, Extension, Length, LastWriteTime | Format-Table -AutoSize
+                }
+            }
+            '4' {
+                $output = Read-Host 'Enter report output path (default: TEMP\CyberHardening_Report.txt)'
+                if ([string]::IsNullOrWhiteSpace($output)) { $output = (Join-Path $env:TEMP 'CyberHardening_Report.txt') }
+                Export-ComplianceReport -OutputPath $output
+            }
+            '5' {
+                return
+            }
+            default {
+                Write-Log 'Invalid audit option selected.' -Level 'WARN'
+            }
+        }
+
+        Write-Host ''
+    } while ($true)
 }
 
 function Search-FilesByType {
@@ -613,6 +841,9 @@ function Invoke-CyberToolMenu {
                 } while ($fileChoice -ne '6')
             }
             '10' {
+                Invoke-AssessmentMenu
+            }
+            '11' {
                 Write-Log 'Exiting Cyber tool.' -Level 'INFO'
                 return
             }
