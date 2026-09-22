@@ -11,34 +11,47 @@ param(
 $ErrorActionPreference = 'Stop'
 $DryRun = [bool]$WhatIfMode
 
+function Initialize-ConsoleTheme {
+    try {
+        $rawUi = $Host.UI.RawUI
+        $rawUi.BackgroundColor = 'Black'
+        $rawUi.ForegroundColor = 'White'
+        $rawUi.WindowTitle = 'Cyber Hardening Toolkit'
+        Clear-Host
+    }
+    catch {
+        Write-Host 'Console theme override not supported in this host; continuing normally.' -ForegroundColor Yellow
+    }
+}
+
 function Show-AsciiLogo {
     $logo = @'
                                                                                              
                                  .####.                                                     
                                 ##.  ##                                                     
-                                ##  ##                                                      
-                               ##    ##                                                     
-                               #     ##                                                     
-                              .#     #.                                                     
-                              .#     .#.#####..####                                         
+                                ##  ##                                                       
+                               ##    ##                                                      
+                               #     ##                                                      
+                              .#     #.                                                      
+                              .#     .#.#####..####                                          
                               ##      ###         ##                                        
-                               #.     ##          ###                                       
-                               ##        ##         .##                                     
-                               ##      .##  .##      ##                                     
+                               #.     ##          ###                                        
+                               ##        ##         .##                                      
+                               ##      .##  .##      ##                                      
                                ##        ##  ##      .##                                    
                               .#         ##.   #      ##                                   
                                ####        #####     ###                                    
-                                  ##.              ###                                      
-                                   ##             ###                                      
+                                  ##.              ###                                       
+                                   ##             ###                                       
                            ..       ###      . ####    ########                             
                         ##.  .#####   #######     ###         ##                            
-                     .###          ###          .##            ###                          
-                     #.              ##        ##               ##.                         
+                     .###          ###          .##            ###                           
+                     #.              ##        ##               ##.                          
                     ##      .####     ###    .##    #####.       #####                      
                   .##       .#  ##      ##  .##     ##   ##.        ##                      
-                  .#      ##.  .#.       #.  ##      ..# .##        #                       
-                   #.     .#..###       ##   ###      ##   ##.      .#                      
-                   ##      ####        ###   ###         .##  .     #.                      
+                  .#      ##.  .#.       #.  ##      ..# .##        #                        
+                   #.     .#..###       ##   ###      ##   ##.      .#                       
+                   ##      ####        ###   ###         .##  .     #.                       
                     .##      #.       ##       ###           ##     .##                     
                       ######         ##          ##         ###     ###                     
                        ###           ###          #####..###..##    ##.                     
@@ -53,9 +66,16 @@ function Show-AsciiLogo {
 
     $logo = $logo -split "`r?`n"
 
+    Write-Host ''
     foreach ($line in $logo) {
-        Write-Host $line -ForegroundColor White
+        Write-Host $line -ForegroundColor Magenta
     }
+
+    Write-Host '=================================================================' -ForegroundColor DarkCyan
+    Write-Host '  CYBER HARDENING TOOLKIT' -ForegroundColor White -BackgroundColor DarkBlue
+    Write-Host '  Local Security, User Management, and System Review Utility' -ForegroundColor Green
+    Write-Host '=================================================================' -ForegroundColor DarkCyan
+    Write-Host ''
 }
 
 function Get-CountAsInt {
@@ -165,7 +185,10 @@ function Parse-FormattedUserList {
 function Write-Section {
     param([string]$Name)
     Write-Log "`n=== $Name ===" -Level 'INFO'
-    Write-Host "`n=== $Name ===" -ForegroundColor White
+    Write-Host "" 
+    Write-Host ('=' * 80) -ForegroundColor DarkCyan
+    Write-Host "  $Name" -ForegroundColor White -BackgroundColor DarkCyan
+    Write-Host ('=' * 80) -ForegroundColor DarkCyan
 }
 
 function Set-RegistryDword {
@@ -380,18 +403,22 @@ function Remove-CyberUserFromGroup {
 }
 
 function Show-CyberMenu {
-    Write-Section 'Cyber Tool Menu'
-    Write-Host '1. Create local group' -ForegroundColor Cyan
-    Write-Host '2. Create local user' -ForegroundColor Cyan
-    Write-Host '3. Add user to group' -ForegroundColor Cyan
-    Write-Host '4. Remove user from group' -ForegroundColor Cyan
-    Write-Host '5. List local users' -ForegroundColor Cyan
-    Write-Host '6. List local groups' -ForegroundColor Cyan
-    Write-Host '7. Run hardening checklist' -ForegroundColor Cyan
-    Write-Host '8. Uninstall application list' -ForegroundColor Cyan
-    Write-Host '9. Search file types' -ForegroundColor Cyan
-    Write-Host '10. System audit & report' -ForegroundColor Cyan
-    Write-Host '11. Exit' -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host '=================================================================' -ForegroundColor DarkYellow
+    Write-Host '                         CYBER TOOL MENU' -ForegroundColor Yellow
+    Write-Host '=================================================================' -ForegroundColor DarkYellow
+    Write-Host '1.  Create local group' -ForegroundColor Magenta
+    Write-Host '2.  Create local user' -ForegroundColor Magenta
+    Write-Host '3.  Add user to group' -ForegroundColor Magenta
+    Write-Host '4.  Remove user from group' -ForegroundColor Magenta
+    Write-Host '5.  List local users' -ForegroundColor Magenta
+    Write-Host '6.  List local groups' -ForegroundColor Magenta
+    Write-Host '7.  Run hardening checklist' -ForegroundColor Magenta
+    Write-Host '8.  Uninstall application list' -ForegroundColor Magenta
+    Write-Host '9.  Search file types' -ForegroundColor Magenta
+    Write-Host '10. System audit & report' -ForegroundColor Magenta
+    Write-Host '11. Exit' -ForegroundColor Red
+    Write-Host '=================================================================' -ForegroundColor DarkYellow
 }
 
 function Get-InstalledApplications {
@@ -565,11 +592,11 @@ function Export-ComplianceReport {
 function Invoke-AssessmentMenu {
     do {
         Write-Section 'System Audit'
-        Write-Host '1. List installed software' -ForegroundColor Cyan
-        Write-Host '2. List startup and autorun items' -ForegroundColor Cyan
-        Write-Host '3. Scan suspicious files in user profile' -ForegroundColor Cyan
-        Write-Host '4. Generate compliance report' -ForegroundColor Cyan
-        Write-Host '5. Back to main menu' -ForegroundColor Cyan
+        Write-Host '1. List installed software' -ForegroundColor Magenta
+        Write-Host '2. List startup and autorun items' -ForegroundColor Magenta
+        Write-Host '3. Scan suspicious files in user profile' -ForegroundColor Magenta
+        Write-Host '4. Generate compliance report' -ForegroundColor Magenta
+        Write-Host '5. Back to main menu' -ForegroundColor Magenta
         $auditChoice = Read-Host 'Select an audit option'
 
         switch ($auditChoice) {
@@ -670,12 +697,12 @@ function Search-FilesByType {
 
 function Show-FileSearchMenu {
     Write-Section 'File Type Search'
-    Write-Host '1. Media files (.mp3, .mp4, .jpg, .png, .avi, .mov, .wav)' -ForegroundColor Cyan
-    Write-Host '2. Archive files (.zip, .rar, .7z, .tar, .gz, .iso)' -ForegroundColor Cyan
-    Write-Host '3. Executables and installers (.exe, .msi, .dll, .bat, .cmd, .ps1)' -ForegroundColor Cyan
-    Write-Host '4. Documents (.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .txt)' -ForegroundColor Cyan
-    Write-Host '5. Custom extension list' -ForegroundColor Cyan
-    Write-Host '6. Back to main menu' -ForegroundColor Cyan
+    Write-Host '1. Media files (.mp3, .mp4, .jpg, .png, .avi, .mov, .wav)' -ForegroundColor Magenta
+    Write-Host '2. Archive files (.zip, .rar, .7z, .tar, .gz, .iso)' -ForegroundColor Magenta
+    Write-Host '3. Executables and installers (.exe, .msi, .dll, .bat, .cmd, .ps1)' -ForegroundColor Magenta
+    Write-Host '4. Documents (.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .txt)' -ForegroundColor Magenta
+    Write-Host '5. Custom extension list' -ForegroundColor Magenta
+    Write-Host '6. Back to main menu' -ForegroundColor Magenta
 }
 
 function Uninstall-ApplicationList {
@@ -753,7 +780,10 @@ function Uninstall-ApplicationList {
 }
 
 function Invoke-CyberToolMenu {
+    Initialize-ConsoleTheme
+    Clear-Host
     Show-AsciiLogo
+    Write-Host ' Select the task you want to run.' -ForegroundColor Gray
     Write-Host ''
     do {
         Show-CyberMenu
@@ -882,12 +912,12 @@ foreach ($entry in $parsedUsers) {
 }
 
 Write-Host ''
-Write-Host 'Authorized Administrators:' -ForegroundColor Cyan
+Write-Host 'Authorized Administrators:' -ForegroundColor Magenta
 foreach ($adminUser in ($parsedUsers | Where-Object { $_.IsAdmin } | Select-Object -ExpandProperty UserName)) {
     Write-Host "  - $adminUser" -ForegroundColor Green
 }
 
-Write-Host 'Authorized Users:' -ForegroundColor Cyan
+Write-Host 'Authorized Users:' -ForegroundColor Magenta
 foreach ($standardUser in ($parsedUsers | Where-Object { -not $_.IsAdmin } | Select-Object -ExpandProperty UserName)) {
     Write-Host "  - $standardUser" -ForegroundColor Yellow
 }
@@ -943,7 +973,7 @@ foreach ($localUser in $allLocalUsers) {
 Write-Section 'Summary'
 $adminUsers = ($authorizedUsers | Where-Object { $_.IsAdmin } | Select-Object -ExpandProperty UserName)
 $standardUsers = ($authorizedUsers | Where-Object { -not $_.IsAdmin } | Select-Object -ExpandProperty UserName)
-Write-Host 'Approved Admins:' -ForegroundColor Cyan
+Write-Host 'Approved Admins:' -ForegroundColor Magenta
 if ((Get-CountAsInt $adminUsers) -gt 0) {
     foreach ($user in $adminUsers) { Write-Host "  - $user" -ForegroundColor Green }
 }
@@ -951,7 +981,7 @@ else {
     Write-Host '  - None' -ForegroundColor Yellow
 }
 
-Write-Host 'Approved Standard Users:' -ForegroundColor Cyan
+Write-Host 'Approved Standard Users:' -ForegroundColor Magenta
 if ((Get-CountAsInt $standardUsers) -gt 0) {
     foreach ($user in $standardUsers) { Write-Host "  - $user" -ForegroundColor Yellow }
 }
@@ -959,7 +989,7 @@ else {
     Write-Host '  - None' -ForegroundColor Yellow
 }
 
-Write-Host 'Kept Unapproved Users:' -ForegroundColor Cyan
+Write-Host 'Kept Unapproved Users:' -ForegroundColor Magenta
 if ((Get-CountAsInt $keptUnapprovedUsers) -gt 0) {
     foreach ($user in $keptUnapprovedUsers) { Write-Host "  - $user" -ForegroundColor Yellow }
 }
@@ -967,7 +997,7 @@ else {
     Write-Host '  - None' -ForegroundColor Yellow
 }
 
-Write-Host 'Disabled Unapproved Users:' -ForegroundColor Cyan
+Write-Host 'Disabled Unapproved Users:' -ForegroundColor Magenta
 if ((Get-CountAsInt $disabledUnapprovedUsers) -gt 0) {
     foreach ($user in $disabledUnapprovedUsers) { Write-Host "  - $user" -ForegroundColor Green }
 }
