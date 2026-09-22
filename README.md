@@ -16,13 +16,13 @@ Think of it as a practical tool for someone who wants a faster starting point wi
    ```powershell
    Set-ExecutionPolicy Unrestricted -Scope LocalMachine
    ```
-3. Download the script:
+3. Download the script to your Desktop:
    ```powershell
-   curl -L -O https://raw.githubusercontent.com/c-o-b-a-x/CyberPatriot-Scrip/refs/heads/main/CyberHardening.ps1
+   curl -L -o "$HOME\Desktop\CyberHardening.ps1" https://raw.githubusercontent.com/c-o-b-a-x/CyberPatriot-Scrip/refs/heads/main/CyberHardening.ps1
    ```
-4. Find the file and run it:
+4. Run it from the Desktop:
    ```powershell
-   .\CyberHardening.ps1
+   .\Desktop\CyberHardening.ps1
    ```
 
 ## A few important notes
