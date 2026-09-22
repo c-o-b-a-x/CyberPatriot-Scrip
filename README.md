@@ -37,3 +37,19 @@ This project provides a Windows local hardening and administration script for cr
 - file-type search utilities
 - console-based menu interface
 
+## What the Original Checklist This Script Does Not Fully Cover
+This script is a practical automation subset, not a complete replacement for every item in the original hardening checklist. Some areas are intentionally left for manual review or require environment-specific validation.
+
+The script does not fully automate the following items by default:
+- browser plug-ins, toolbars, and third-party add-ons review
+- Java, Flash, and Adobe plugin verification
+- manual validation of scheduled tasks and startup items
+- review of all Windows services not explicitly covered by the script
+- domain-specific or organization-specific policy exceptions
+- custom network firewall rules beyond the built-in baseline changes
+- full auditing of every registry key, GPO, or local policy drift scenario
+- any checklist item that depends on live user judgment or operational context
+- deep validation of every installed application, browser extension, or user profile setting
+
+In other words, the script automates the common local admin, security, and cleanup tasks, but it still expects an operator to manually confirm the parts of the checklist that are environment-sensitive, policy-specific, or not safe to automate broadly.
+
