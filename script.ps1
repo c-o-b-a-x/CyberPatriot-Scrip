@@ -1359,12 +1359,12 @@ $allLocalAccounts = Get-LocalUser -ErrorAction SilentlyContinue | Where-Object {
 foreach ($localAccount in $allLocalAccounts) {
     try {
         if ($DryRun) {
-            Write-Log "Dry run: would set password requirement for '$($localAccount.Name)' to YES." -Level 'INFO'
+            Write-Log "Dry run: would set password requirement for '$($localAccount.Name)' to TRUE." -Level 'INFO'
             continue
         }
 
-        net user "$($localAccount.Name)" /PASSWORDREQ:YES | Out-Null
-        Write-Log "Set password requirement to YES for user '$($localAccount.Name)'." -Level 'SUCCESS'
+        net user "$($localAccount.Name)" /PASSWORDREQ:TRUE | Out-Null
+        Write-Log "Set password requirement to TRUE for user '$($localAccount.Name)'." -Level 'SUCCESS'
     }
     catch {
         Write-Log "Could not enforce password requirement for '$($localAccount.Name)'. Review manually." -Level 'WARN'
