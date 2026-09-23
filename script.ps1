@@ -454,6 +454,22 @@ function Add-CyberUserToGroup {
     Write-Log "Added user '$UserName' to group '$GroupName'." -Level 'SUCCESS'
 }
 
+function Add-CyberUserToRdpGroup {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$UserName
+    )
+
+    $rdpGroup = 'Remote Desktop Users'
+    $group = Get-LocalGroup -Name $rdpGroup -ErrorAction SilentlyContinue
+    if (-not $group) {
+        Write-Log "The '$rdpGroup' group does not exist on this system. RDP may not be enabled or the group is unavailable." -Level 'WARN'
+        return
+    }
+
+    Add-CyberUserToGroup -UserName $UserName -GroupName $rdpGroup
+}
+
 function Remove-CyberUserFromGroup {
     param(
         [Parameter(Mandatory = $true)]
@@ -494,13 +510,14 @@ function Show-CyberMenu {
     Write-Host '2.  Create local group' -ForegroundColor Magenta
     Write-Host '3.  Create local user' -ForegroundColor Magenta
     Write-Host '4.  Add user to group' -ForegroundColor Magenta
-    Write-Host '5.  Remove user from group' -ForegroundColor Magenta
-    Write-Host '6.  List local users' -ForegroundColor Magenta
-    Write-Host '7.  List local groups' -ForegroundColor Magenta
-    Write-Host '8.  Uninstall application list' -ForegroundColor Magenta
-    Write-Host '9.  Search file types' -ForegroundColor Magenta
-    Write-Host '10. Vulnerability scan' -ForegroundColor Magenta
-    Write-Host '11. Exit' -ForegroundColor Red
+    Write-Host '5.  Add user to Remote Desktop Users' -ForegroundColor Magenta
+    Write-Host '6.  Remove user from group' -ForegroundColor Magenta
+    Write-Host '7.  List local users' -ForegroundColor Magenta
+    Write-Host '8.  List local groups' -ForegroundColor Magenta
+    Write-Host '9.  Uninstall application list' -ForegroundColor Magenta
+    Write-Host '10. Search file types' -ForegroundColor Magenta
+    Write-Host '11. Vulnerability scan' -ForegroundColor Magenta
+    Write-Host '12. Exit' -ForegroundColor Red
     Write-Host '=================================================================' -ForegroundColor DarkGreen
 }
 
@@ -998,20 +1015,24 @@ function Invoke-CyberToolMenu {
                 Add-CyberUserToGroup -UserName $userName -GroupName $groupName
             }
             '5' {
+                $userName = Read-Host 'Enter username to add to Remote Desktop Users'
+                Add-CyberUserToRdpGroup -UserName $userName
+            }
+            '6' {
                 $userName = Read-Host 'Enter username to remove'
                 $groupName = Read-Host 'Enter group name'
                 Remove-CyberUserFromGroup -UserName $userName -GroupName $groupName
             }
-            '6' {
+            '7' {
                 Get-LocalUser | Select-Object Name, Enabled, PrincipalSource | Format-Table -AutoSize
             }
-            '7' {
+            '8' {
                 Get-LocalGroup | Select-Object Name, Description | Format-Table -AutoSize
             }
-            '8' {
+            '9' {
                 Uninstall-ApplicationList
             }
-            '9' {
+            '10' {
                 do {
                     Show-FileSearchMenu
                     $fileChoice = Read-Host 'Select a file type search'
@@ -1067,10 +1088,10 @@ function Invoke-CyberToolMenu {
                     Write-Host ''
                 } while ($fileChoice -ne '6')
             }
-            '10' {
+            '11' {
                 Invoke-VulnerabilityScan
             }
-            '11' {
+            '12' {
                 Write-Log 'Exiting Cyber tool.' -Level 'INFO'
                 return
             }
@@ -1607,6 +1628,10 @@ if ($Action) {
             if (-not $UserName -or -not $GroupName) { throw 'UserName and GroupName are required when Action is remove-from-group.' }
             Remove-CyberUserFromGroup -UserName $UserName -GroupName $GroupName
         }
+        'add-to-rdp' {
+            if (-not $UserName) { throw 'UserName is required when Action is add-to-rdp.' }
+            Add-CyberUserToRdpGroup -UserName $UserName
+        }
         'harden' {
             Invoke-CyberHardening
         }
@@ -1614,7 +1639,7 @@ if ($Action) {
             Uninstall-ApplicationList -Applications $AppNames
         }
         default {
-            throw "Unknown action '$Action'. Valid actions: create-group, create-user, add-to-group, remove-from-group, harden, uninstall-apps."
+            throw "Unknown action '$Action'. Valid actions: create-group, create-user, add-to-group, remove-from-group, add-to-rdp, harden, uninstall-apps."
         }
     }
     exit 0
