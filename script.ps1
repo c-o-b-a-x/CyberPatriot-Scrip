@@ -490,13 +490,13 @@ function Show-CyberMenu {
     Write-Host '=================================================================' -ForegroundColor DarkGreen
     Write-Host '                         CYBER TOOL MENU' -ForegroundColor Green
     Write-Host '=================================================================' -ForegroundColor DarkGreen
-    Write-Host '1.  Create local group' -ForegroundColor Magenta
-    Write-Host '2.  Create local user' -ForegroundColor Magenta
-    Write-Host '3.  Add user to group' -ForegroundColor Magenta
-    Write-Host '4.  Remove user from group' -ForegroundColor Magenta
-    Write-Host '5.  List local users' -ForegroundColor Magenta
-    Write-Host '6.  List local groups' -ForegroundColor Magenta
-    Write-Host '7.  Run hardening checklist' -ForegroundColor Magenta
+    Write-Host '1.  Run hardening checklist' -ForegroundColor Magenta
+    Write-Host '2.  Create local group' -ForegroundColor Magenta
+    Write-Host '3.  Create local user' -ForegroundColor Magenta
+    Write-Host '4.  Add user to group' -ForegroundColor Magenta
+    Write-Host '5.  Remove user from group' -ForegroundColor Magenta
+    Write-Host '6.  List local users' -ForegroundColor Magenta
+    Write-Host '7.  List local groups' -ForegroundColor Magenta
     Write-Host '8.  Uninstall application list' -ForegroundColor Magenta
     Write-Host '9.  Search file types' -ForegroundColor Magenta
     Write-Host '10. Vulnerability scan' -ForegroundColor Magenta
@@ -978,35 +978,35 @@ function Invoke-CyberToolMenu {
 
         switch ($choice) {
             '1' {
+                Invoke-CyberHardening
+            }
+            '2' {
                 $groupName = Read-Host 'Enter group name'
                 $description = Read-Host 'Enter group description (optional)'
                 New-CyberGroup -Name $groupName -Description $description
             }
-            '2' {
+            '3' {
                 $userName = Read-Host 'Enter username'
                 $password = Read-Host 'Enter password'
                 $fullName = Read-Host 'Enter full name (optional)'
                 $description = Read-Host 'Enter description (optional)'
                 New-CyberUser -UserName $userName -Password $password -FullName $fullName -Description $description
             }
-            '3' {
+            '4' {
                 $userName = Read-Host 'Enter username to add'
                 $groupName = Read-Host 'Enter group name'
                 Add-CyberUserToGroup -UserName $userName -GroupName $groupName
             }
-            '4' {
+            '5' {
                 $userName = Read-Host 'Enter username to remove'
                 $groupName = Read-Host 'Enter group name'
-                Remove-CyberUserFromGroup -UserName $userName -GroupName $GroupName
-            }
-            '5' {
-                Get-LocalUser | Select-Object Name, Enabled, PrincipalSource | Format-Table -AutoSize
+                Remove-CyberUserFromGroup -UserName $userName -GroupName $groupName
             }
             '6' {
-                Get-LocalGroup | Select-Object Name, Description | Format-Table -AutoSize
+                Get-LocalUser | Select-Object Name, Enabled, PrincipalSource | Format-Table -AutoSize
             }
             '7' {
-                Invoke-CyberHardening
+                Get-LocalGroup | Select-Object Name, Description | Format-Table -AutoSize
             }
             '8' {
                 Uninstall-ApplicationList
@@ -1359,12 +1359,12 @@ $allLocalAccounts = Get-LocalUser -ErrorAction SilentlyContinue | Where-Object {
 foreach ($localAccount in $allLocalAccounts) {
     try {
         if ($DryRun) {
-            Write-Log "Dry run: would set password requirement for '$($localAccount.Name)' to TRUE." -Level 'INFO'
+            Write-Log "Dry run: would set password requirement for '$($localAccount.Name)' to YES." -Level 'INFO'
             continue
         }
 
-        net user "$($localAccount.Name)" /PASSWORDREQ:TRUE | Out-Null
-        Write-Log "Set password requirement to TRUE for user '$($localAccount.Name)'." -Level 'SUCCESS'
+        net user "$($localAccount.Name)" /PASSWORDREQ:YES | Out-Null
+        Write-Log "Set password requirement to YES for user '$($localAccount.Name)'." -Level 'SUCCESS'
     }
     catch {
         Write-Log "Could not enforce password requirement for '$($localAccount.Name)'. Review manually." -Level 'WARN'
