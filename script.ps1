@@ -72,7 +72,7 @@ function Show-AsciiLogo {
     }
 
     Write-Host '=================================================================' -ForegroundColor DarkCyan
-    Write-Host '  CYBER HARDENING TOOLKIT' -ForegroundColor White -BackgroundColor DarkBlue
+    Write-Host '  CYBER HARDENING TOOLKIT' -ForegroundColor White -BackgroundColor Black
     Write-Host '  Local Security, User Management, and System Review Utility' -ForegroundColor Green
     Write-Host '=================================================================' -ForegroundColor DarkCyan
     Write-Host ''
@@ -187,7 +187,7 @@ function Write-Section {
     Write-Log "`n=== $Name ===" -Level 'INFO'
     Write-Host "" 
     Write-Host ('=' * 80) -ForegroundColor DarkCyan
-    Write-Host "  $Name" -ForegroundColor White -BackgroundColor DarkCyan
+    Write-Host "  $Name" -ForegroundColor White -BackgroundColor Black
     Write-Host ('=' * 80) -ForegroundColor DarkCyan
 }
 
@@ -217,6 +217,73 @@ function Set-RegistryString {
     }
 
     Set-ItemProperty -Path $Path -Name $Name -Value $Value -Force
+}
+
+function Enable-WindowsSecurityBaseline {
+    Write-Section 'Windows Security Baseline'
+
+    $firewallProfiles = @('Domain', 'Public', 'Private')
+    foreach ($profile in $firewallProfiles) {
+        try {
+            Get-NetFirewallProfile -Name $profile -ErrorAction Stop | Out-Null
+            Set-NetFirewallProfile -Name $profile -Enabled True -DefaultInboundAction Block -DefaultOutboundAction Allow -NotifyOnListen True -LogFileName "$env:SystemRoot\System32\LogFiles\Firewall\pfirewall.log" -LogFileSizeKilobytes 4096 -LogDroppedPackets True -LogSuccessfulConnections False -ErrorAction Stop
+            Write-Log "Enabled and hardened firewall profile '$profile'." -Level 'SUCCESS'
+        }
+        catch {
+            Write-Log "Firewall profile '$profile' could not be hardened automatically. Review manually." -Level 'WARN'
+        }
+    }
+
+    foreach ($serviceName in @('MpsSvc', 'WinDefend', 'WdNisSvc', 'wscsvc', 'SecurityHealthService')) {
+        try {
+            $svc = Get-Service -Name $serviceName -ErrorAction Stop
+            if ($svc.StartType -ne 'Automatic') {
+                Set-Service -Name $serviceName -StartupType Automatic -ErrorAction Stop
+            }
+            if ($svc.Status -ne 'Running') {
+                Start-Service -Name $serviceName -ErrorAction SilentlyContinue
+            }
+            Write-Log "Ensured service '$serviceName' is running and set to automatic startup." -Level 'SUCCESS'
+        }
+        catch {
+            Write-Log "Service '$serviceName' is not available on this host; skipping." -Level 'INFO'
+        }
+    }
+
+    $securityRegistry = @(
+        @{Path='HKLM:\SOFTWARE\Microsoft\Windows Defender'; Name='DisableAntiSpyware'; Value=0},
+        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender'; Name='DisableAntiSpyware'; Value=0},
+        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name='DisableRealtimeMonitoring'; Value=0},
+        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name='DisableBehaviorMonitoring'; Value=0},
+        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name='DisableOnAccessProtection'; Value=0},
+        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name='DisableScanOnRealtimeEnable'; Value=0},
+        @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='EnableLUA'; Value=1},
+        @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='ConsentPromptBehaviorAdmin'; Value=5},
+        @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='PromptOnSecureDesktop'; Value=1},
+        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging'; Name='EnableScriptBlockLogging'; Value=1}
+    )
+
+    foreach ($entry in $securityRegistry) {
+        try {
+            Set-RegistryDword -Path $entry.Path -Name $entry.Name -Value $entry.Value
+        }
+        catch {
+            Write-Log "Could not set $($entry.Path)\$($entry.Name) to $($entry.Value)." -Level 'WARN'
+        }
+    }
+
+    try {
+        Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction Stop
+        Set-MpPreference -PUAProtection 1 -ErrorAction Stop
+        Set-MpPreference -ScanAvgCPULoadFactor 5 -ErrorAction Stop
+        Set-MpPreference -MAPSReporting 1 -ErrorAction Stop
+        Write-Log 'Windows Defender is set to actively protect the machine.' -Level 'SUCCESS'
+    }
+    catch {
+        Write-Log 'Windows Defender cmdlets were unavailable; Defender settings were not fully enforced automatically.' -Level 'WARN'
+    }
+
+    Write-Log 'Windows Security baseline has been applied to the extent supported by this host.' -Level 'SUCCESS'
 }
 
 function Disable-ServiceSafely {
@@ -404,9 +471,9 @@ function Remove-CyberUserFromGroup {
 
 function Show-CyberMenu {
     Write-Host ''
-    Write-Host '=================================================================' -ForegroundColor DarkYellow
-    Write-Host '                         CYBER TOOL MENU' -ForegroundColor Yellow
-    Write-Host '=================================================================' -ForegroundColor DarkYellow
+    Write-Host '=================================================================' -ForegroundColor DarkGreen
+    Write-Host '                         CYBER TOOL MENU' -ForegroundColor Green
+    Write-Host '=================================================================' -ForegroundColor DarkGreen
     Write-Host '1.  Create local group' -ForegroundColor Magenta
     Write-Host '2.  Create local user' -ForegroundColor Magenta
     Write-Host '3.  Add user to group' -ForegroundColor Magenta
@@ -416,19 +483,26 @@ function Show-CyberMenu {
     Write-Host '7.  Run hardening checklist' -ForegroundColor Magenta
     Write-Host '8.  Uninstall application list' -ForegroundColor Magenta
     Write-Host '9.  Search file types' -ForegroundColor Magenta
-    Write-Host '10. System audit & report' -ForegroundColor Magenta
-    Write-Host '11. Exit' -ForegroundColor Red
-    Write-Host '=================================================================' -ForegroundColor DarkYellow
+    Write-Host '10. Vulnerability scan' -ForegroundColor Magenta
+    Write-Host '11. System audit & report' -ForegroundColor Magenta
+    Write-Host '12. Exit' -ForegroundColor Red
+    Write-Host '=================================================================' -ForegroundColor DarkGreen
 }
 
 function Get-InstalledApplications {
+    param(
+        [switch]$IncludeSlowCimScan
+    )
+
     $software = @()
 
-    try {
-        $software += Get-CimInstance Win32_Product -ErrorAction SilentlyContinue | Select-Object Name, Vendor, Version, InstallLocation
-    }
-    catch {
-        Write-Log 'Could not enumerate Win32_Product entries; falling back to registry uninstall data.' -Level 'WARN'
+    if ($IncludeSlowCimScan) {
+        try {
+            $software += Get-CimInstance Win32_Product -ErrorAction SilentlyContinue | Select-Object Name, Vendor, Version, InstallLocation
+        }
+        catch {
+            Write-Log 'Could not enumerate Win32_Product entries; falling back to registry uninstall data.' -Level 'WARN'
+        }
     }
 
     $registryPaths = @(
@@ -522,7 +596,7 @@ function Get-SuspiciousFiles {
     )
 
     if ([string]::IsNullOrWhiteSpace($RootPath)) {
-        $RootPath = $env:USERPROFILE
+        $RootPath = Get-DefaultScanRoot
     }
 
     $root = $RootPath.Trim()
@@ -557,10 +631,11 @@ function Export-ComplianceReport {
     $suspicious = @()
 
     try {
-        $suspicious = Get-SuspiciousFiles -RootPath $env:USERPROFILE
+        $defaultRoot = Get-DefaultScanRoot
+        $suspicious = Get-SuspiciousFiles -RootPath $defaultRoot
     }
     catch {
-        Write-Log 'Could not generate suspicious file report for the user profile.' -Level 'WARN'
+        Write-Log 'Could not generate suspicious file report for the default scan root.' -Level 'WARN'
         $suspicious = @()
     }
 
@@ -596,7 +671,8 @@ function Invoke-AssessmentMenu {
         Write-Host '2. List startup and autorun items' -ForegroundColor Magenta
         Write-Host '3. Scan suspicious files in user profile' -ForegroundColor Magenta
         Write-Host '4. Generate compliance report' -ForegroundColor Magenta
-        Write-Host '5. Back to main menu' -ForegroundColor Magenta
+        Write-Host '5. Run vulnerability scan' -ForegroundColor Magenta
+        Write-Host '6. Back to main menu' -ForegroundColor Magenta
         $auditChoice = Read-Host 'Select an audit option'
 
         switch ($auditChoice) {
@@ -621,8 +697,9 @@ function Invoke-AssessmentMenu {
                 }
             }
             '3' {
-                $scanRoot = Read-Host 'Enter the folder to scan (default: user profile)'
-                if ([string]::IsNullOrWhiteSpace($scanRoot)) { $scanRoot = $env:USERPROFILE }
+                $defaultRoot = Get-DefaultScanRoot
+                $scanRoot = Read-Host "Enter the folder to scan (default: $defaultRoot)"
+                if ([string]::IsNullOrWhiteSpace($scanRoot)) { $scanRoot = $defaultRoot }
                 $suspicious = Get-SuspiciousFiles -RootPath $scanRoot
                 if ((Get-CountAsInt $suspicious) -eq 0) {
                     Write-Host "No suspicious files found under '$scanRoot'." -ForegroundColor Yellow
@@ -637,6 +714,9 @@ function Invoke-AssessmentMenu {
                 Export-ComplianceReport -OutputPath $output
             }
             '5' {
+                Invoke-VulnerabilityScan
+            }
+            '6' {
                 return
             }
             default {
@@ -650,16 +730,15 @@ function Invoke-AssessmentMenu {
 
 function Search-FilesByType {
     param(
-        [Parameter(Mandatory = $true)]
         [string]$RootPath,
         [Parameter(Mandatory = $true)]
         [string[]]$Extensions,
         [string]$CategoryName = 'Files'
     )
 
-    $validatedRoot = $RootPath.Trim()
+    $validatedRoot = if ([string]::IsNullOrWhiteSpace($RootPath)) { Get-DefaultScanRoot } else { $RootPath.Trim() }
     if ([string]::IsNullOrWhiteSpace($validatedRoot)) {
-        throw 'A valid root path is required.'
+        $validatedRoot = Get-DefaultScanRoot
     }
 
     if (-not (Test-Path -LiteralPath $validatedRoot)) {
@@ -697,6 +776,7 @@ function Search-FilesByType {
 
 function Show-FileSearchMenu {
     Write-Section 'File Type Search'
+    Write-Host ('Default search root: ' + (Get-DefaultScanRoot)) -ForegroundColor Cyan
     Write-Host '1. Media files (.mp3, .mp4, .jpg, .png, .avi, .mov, .wav)' -ForegroundColor Magenta
     Write-Host '2. Archive files (.zip, .rar, .7z, .tar, .gz, .iso)' -ForegroundColor Magenta
     Write-Host '3. Executables and installers (.exe, .msi, .dll, .bat, .cmd, .ps1)' -ForegroundColor Magenta
@@ -779,6 +859,162 @@ function Uninstall-ApplicationList {
     }
 }
 
+function New-VulnerabilityFinding {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Category,
+        [Parameter(Mandatory = $true)]
+        [string]$Title,
+        [Parameter(Mandatory = $true)]
+        [int]$Score,
+        [Parameter(Mandatory = $true)]
+        [string]$Evidence,
+        [Parameter(Mandatory = $true)]
+        [string]$Recommendation
+    )
+
+    [PSCustomObject]@{
+        Category = $Category
+        Title = $Title
+        Score = $Score
+        Evidence = $Evidence
+        Recommendation = $Recommendation
+    }
+}
+
+function Get-SuspiciousNamedFiles {
+    $baseRoot = Get-DefaultScanRoot
+    $patterns = @(
+        'mimikatz','psexec','nc.exe','netcat','metasploit','r57','rat','rootkit','backdoor','keylogger','passwordstealer','credential','token','samdump','lsass','dump','revshell','reverse','payload','exploit','loader','dropper','beacon','agent','stealer','inject','hacktool','crack','bypass','runner','evil','malware','shell','pwnd','pwn','adminpass','pass.txt','passw','accountdump','wmic','cmd.exe','powershell.exe'
+    )
+
+    $fileResults = @()
+    try {
+        $files = Get-ChildItem -Path $baseRoot -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+            $_.Name -and $_.Extension -match '\.(exe|dll|bat|cmd|ps1|vbs|js|jar|com|scr|hta|lnk)$|\.(zip|rar|7z)$'
+        }
+
+        foreach ($file in $files) {
+            $name = $file.Name.ToLowerInvariant()
+            foreach ($pattern in $patterns) {
+                if ($name.Contains($pattern)) {
+                    $fileResults += [PSCustomObject]@{
+                        FullName = $file.FullName
+                        Name = $file.Name
+                        Pattern = $pattern
+                    }
+                    break
+                }
+            }
+        }
+    }
+    catch {
+    }
+
+    return $fileResults | Sort-Object FullName -Unique
+}
+
+function Get-VulnerabilityFindings {
+    $findings = @()
+
+    $guestUser = Get-CimInstance Win32_UserAccount -Filter "LocalAccount='True' AND Name='Guest'" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($guestUser -and -not $guestUser.Disabled) {
+        $findings += New-VulnerabilityFinding -Category 'Accounts' -Title 'Guest account is enabled' -Score 25 -Evidence "Guest account status: enabled" -Recommendation 'Disable the Guest account and review local account policy.'
+    }
+
+    try {
+        $autoAdminSetting = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name 'AutoAdminLogon' -ErrorAction Stop).AutoAdminLogon
+        if ($autoAdminSetting -eq 1) {
+            $findings += New-VulnerabilityFinding -Category 'Logon' -Title 'Automatic admin logon enabled' -Score 35 -Evidence 'AutoAdminLogon is set to 1.' -Recommendation 'Set AutoAdminLogon to 0 and require user authentication.'
+        }
+    }
+    catch {
+    }
+
+    try {
+        $uacValue = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'EnableLUA' -ErrorAction Stop).EnableLUA
+        if ($uacValue -ne 1) {
+            $findings += New-VulnerabilityFinding -Category 'Security Controls' -Title 'User Account Control is disabled or reduced' -Score 30 -Evidence "EnableLUA is $uacValue" -Recommendation 'Set EnableLUA to 1 and enforce secure consent prompts.'
+        }
+    }
+    catch {
+    }
+
+    try {
+        $profiles = Get-NetFirewallProfile -ErrorAction Stop
+        foreach ($profile in $profiles) {
+            if (-not $profile.Enabled) {
+                $findings += New-VulnerabilityFinding -Category 'Firewall' -Title "Firewall profile disabled: $($profile.Name)" -Score 30 -Evidence "Firewall profile '$($profile.Name)' is disabled." -Recommendation 'Enable the profile and block unauthorized inbound traffic.'
+            }
+        }
+    }
+    catch {
+    }
+
+    $defenderSvc = Get-Service -Name 'WinDefend' -ErrorAction SilentlyContinue
+    if ($defenderSvc -and $defenderSvc.Status -ne 'Running') {
+        $findings += New-VulnerabilityFinding -Category 'Endpoint Protection' -Title 'Windows Defender is not actively running' -Score 40 -Evidence "WinDefend service status: $($defenderSvc.Status)" -Recommendation 'Start and configure Windows Defender to protect the endpoint.'
+    }
+
+    try {
+        $smb1 = Get-WindowsOptionalFeature -Online -FeatureName 'SMB1Protocol' -ErrorAction Stop
+        if ($smb1.State -eq 'Enabled') {
+            $findings += New-VulnerabilityFinding -Category 'Protocols' -Title 'SMB1 is enabled' -Score 20 -Evidence 'SMB1 optional feature is enabled.' -Recommendation 'Disable SMB1 and require modern SMB versions.'
+        }
+    }
+    catch {
+    }
+
+    foreach ($legacyService in @('Telnet', 'SNMPTRAP', 'RemoteRegistry', 'Fax')) {
+        $svc = Get-Service -Name $legacyService -ErrorAction SilentlyContinue
+        if ($svc -and $svc.Status -eq 'Running') {
+            $findings += New-VulnerabilityFinding -Category 'Services' -Title "Legacy service is running: $legacyService" -Score 15 -Evidence "Service '$legacyService' is currently running." -Recommendation 'Disable unnecessary legacy services and review service baselines.'
+        }
+    }
+
+    $startupItems = Get-StartupItems
+    if ((Get-CountAsInt $startupItems) -gt 12) {
+        $findings += New-VulnerabilityFinding -Category 'Startup' -Title 'Large number of startup items present' -Score 20 -Evidence "Found $((Get-CountAsInt $startupItems)) startup items." -Recommendation 'Review auto-run entries and remove unauthorized startup programs.'
+    }
+
+    $suspiciousNamedFiles = Get-SuspiciousNamedFiles
+    if ((Get-CountAsInt $suspiciousNamedFiles) -gt 0) {
+        $highRiskFileCount = @($suspiciousNamedFiles | Where-Object { $_.Pattern -in @('mimikatz','psexec','nc.exe','netcat','metasploit','r57','rat','rootkit','backdoor','keylogger','passwordstealer','credential','token','samdump','lsass','dump','revshell','reverse','payload','exploit','loader','dropper','beacon','agent','stealer','inject','hacktool','crack','bypass','runner','evil','malware','shell','pwnd','pwn','adminpass','pass.txt','passw','accountdump','wmic','cmd.exe','powershell.exe') }).Count
+        $score = if ($highRiskFileCount -gt 0) { 50 } else { 35 }
+        $sampleNames = ($suspiciousNamedFiles | Select-Object -ExpandProperty Name | Select-Object -First 5) -join ', '
+        $findings += New-VulnerabilityFinding -Category 'Files' -Title 'Suspicious file names detected' -Score $score -Evidence "Suspicious file names found: $sampleNames" -Recommendation 'Review these files manually for malicious content, persistence, or unauthorized payloads.'
+    }
+
+    $localUsers = Get-LocalUser -ErrorAction SilentlyContinue
+    $knownSafeUsers = @('Administrator', 'Guest', 'DefaultAccount', 'WDAGUtilityAccount')
+    $unknownLocalUsers = @($localUsers | Where-Object { $_.Name -notin $knownSafeUsers })
+    if ((Get-CountAsInt $unknownLocalUsers) -gt 0) {
+        $sampleNames = ($unknownLocalUsers | Select-Object -ExpandProperty Name | Select-Object -First 5) -join ', '
+        $findings += New-VulnerabilityFinding -Category 'Accounts' -Title 'Unreviewed local user accounts exist' -Score 25 -Evidence "Local accounts found: $sampleNames" -Recommendation 'Review local user accounts against the approved list and disable any unapproved accounts.'
+    }
+
+    if ($findings.Count -eq 0) {
+        $findings += New-VulnerabilityFinding -Category 'Baseline' -Title 'No obvious manual-review gaps detected' -Score 0 -Evidence 'No high-confidence vulnerabilities were detected in the standard local baseline scan.' -Recommendation 'Continue manual validation for environment-specific policies and app-specific risk.'
+    }
+
+    return $findings | Sort-Object Score -Descending
+}
+
+function Invoke-VulnerabilityScan {
+    Write-Section 'CyberPatriot-style Vulnerability Scan'
+    $findings = Get-VulnerabilityFindings
+    $totalScore = (($findings | Measure-Object -Property Score -Sum).Sum)
+
+    if ($findings.Count -eq 0) {
+        Write-Host 'No findings recorded.' -ForegroundColor Yellow
+        return
+    }
+
+    $findings | Select-Object Category, Title, Score, Evidence, Recommendation | Format-Table -AutoSize
+    Write-Host "`nTotal likely vulnerability score: $totalScore" -ForegroundColor Yellow
+    Write-Host 'This is a manual-review score for likely weak points and should be checked by a human before final submission.' -ForegroundColor Cyan
+}
+
 function Invoke-CyberToolMenu {
     Initialize-ConsoleTheme
     Clear-Host
@@ -831,27 +1067,37 @@ function Invoke-CyberToolMenu {
 
                     switch ($fileChoice) {
                         '1' {
-                            $root = Read-Host 'Enter the folder path to search for media files'
+                            $defaultRoot = Get-DefaultScanRoot
+                            $root = Read-Host "Enter the folder path to search for media files (default: $defaultRoot)"
+                            if ([string]::IsNullOrWhiteSpace($root)) { $root = $defaultRoot }
                             $exts = @('mp3', 'mp4', 'm4a', 'aac', 'wav', 'flac', 'avi', 'mov', 'wmv', 'mkv', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp')
                             Search-FilesByType -RootPath $root -Extensions $exts -CategoryName 'Media'
                         }
                         '2' {
-                            $root = Read-Host 'Enter the folder path to search for archive files'
+                            $defaultRoot = Get-DefaultScanRoot
+                            $root = Read-Host "Enter the folder path to search for archive files (default: $defaultRoot)"
+                            if ([string]::IsNullOrWhiteSpace($root)) { $root = $defaultRoot }
                             $exts = @('zip', 'rar', '7z', 'tar', 'gz', 'tgz', 'bz2', 'xz', 'iso')
                             Search-FilesByType -RootPath $root -Extensions $exts -CategoryName 'Archive'
                         }
                         '3' {
-                            $root = Read-Host 'Enter the folder path to search for executables and installers'
+                            $defaultRoot = Get-DefaultScanRoot
+                            $root = Read-Host "Enter the folder path to search for executables and installers (default: $defaultRoot)"
+                            if ([string]::IsNullOrWhiteSpace($root)) { $root = $defaultRoot }
                             $exts = @('exe', 'msi', 'dll', 'bat', 'cmd', 'ps1', 'com', 'scr', 'appx', 'msix')
                             Search-FilesByType -RootPath $root -Extensions $exts -CategoryName 'Executable'
                         }
                         '4' {
-                            $root = Read-Host 'Enter the folder path to search for documents'
+                            $defaultRoot = Get-DefaultScanRoot
+                            $root = Read-Host "Enter the folder path to search for documents (default: $defaultRoot)"
+                            if ([string]::IsNullOrWhiteSpace($root)) { $root = $defaultRoot }
                             $exts = @('pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'rtf')
                             Search-FilesByType -RootPath $root -Extensions $exts -CategoryName 'Document'
                         }
                         '5' {
-                            $root = Read-Host 'Enter the folder path to search for custom types'
+                            $defaultRoot = Get-DefaultScanRoot
+                            $root = Read-Host "Enter the folder path to search for custom types (default: $defaultRoot)"
+                            if ([string]::IsNullOrWhiteSpace($root)) { $root = $defaultRoot }
                             $customInput = Read-Host 'Enter extensions separated by commas (example: exe,zip,pdf,mp4)'
                             $exts = @()
                             if (-not [string]::IsNullOrWhiteSpace($customInput)) {
@@ -871,9 +1117,12 @@ function Invoke-CyberToolMenu {
                 } while ($fileChoice -ne '6')
             }
             '10' {
-                Invoke-AssessmentMenu
+                Invoke-VulnerabilityScan
             }
             '11' {
+                Invoke-AssessmentMenu
+            }
+            '12' {
                 Write-Log 'Exiting Cyber tool.' -Level 'INFO'
                 return
             }
@@ -1187,16 +1436,7 @@ Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policie
 # Disable one-click network discovery hints and place controls into standard security posture
 Set-RegistryDword -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer' -Name 'NoDataCollection' -Value 1
 
-Write-Section 'Windows Defender'
-try {
-    Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction Stop
-    Set-MpPreference -ScanAvgCPULoadFactor 5 -ErrorAction Stop
-    Set-MpPreference -PUAProtection 1 -ErrorAction Stop
-    Write-Host 'Windows Defender settings applied.' -ForegroundColor Green
-}
-catch {
-    Write-Warning 'Windows Defender could not be configured via WMI; review manually.'
-}
+Enable-WindowsSecurityBaseline
 
 Write-Section 'Services'
 $servicesToDisable = @(
@@ -1355,6 +1595,9 @@ Write-Section 'Firewall / Defender / PowerShell Hardening'
 # Enable UAC and PowerShell logging best effort
 Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'EnableLUA' -Value 1
 Set-RegistryDword -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -Name 'EnableScriptBlockLogging' -Value 1
+
+# Full security baseline is applied in the earlier baseline section, and this final pass keeps the most critical keys in place.
+Write-Host 'Windows firewall, Defender, and core security controls have been enabled to the strongest supported baseline.' -ForegroundColor Green
 
 Write-Section 'Task Scheduler / Cleanup'
 # Remove common unauthorized scheduled tasks is not broadly safe; review manually.
