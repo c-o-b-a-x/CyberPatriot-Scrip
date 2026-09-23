@@ -219,6 +219,22 @@ function Set-RegistryString {
     Set-ItemProperty -Path $Path -Name $Name -Value $Value -Force
 }
 
+function Get-DefaultScanRoot {
+    $root = $env:SystemDrive
+    if ([string]::IsNullOrWhiteSpace($root)) { $root = $env:USERPROFILE }
+    if ([string]::IsNullOrWhiteSpace($root)) { $root = 'C:\' }
+
+    if (-not (Test-Path -LiteralPath $root)) {
+        $fallback = $env:USERPROFILE
+        if (-not [string]::IsNullOrWhiteSpace($fallback) -and (Test-Path -LiteralPath $fallback)) {
+            return $fallback
+        }
+        return 'C:\'
+    }
+
+    return $root
+}
+
 function Enable-WindowsSecurityBaseline {
     Write-Section 'Windows Security Baseline'
 
@@ -484,8 +500,7 @@ function Show-CyberMenu {
     Write-Host '8.  Uninstall application list' -ForegroundColor Magenta
     Write-Host '9.  Search file types' -ForegroundColor Magenta
     Write-Host '10. Vulnerability scan' -ForegroundColor Magenta
-    Write-Host '11. System audit & report' -ForegroundColor Magenta
-    Write-Host '12. Exit' -ForegroundColor Red
+    Write-Host '11. Exit' -ForegroundColor Red
     Write-Host '=================================================================' -ForegroundColor DarkGreen
 }
 
@@ -662,70 +677,6 @@ function Export-ComplianceReport {
     $reportText | Set-Content -Path $OutputPath -Encoding UTF8
     Write-Log "Compliance report written to '$OutputPath'." -Level 'SUCCESS'
     return $OutputPath
-}
-
-function Invoke-AssessmentMenu {
-    do {
-        Write-Section 'System Audit'
-        Write-Host '1. List installed software' -ForegroundColor Magenta
-        Write-Host '2. List startup and autorun items' -ForegroundColor Magenta
-        Write-Host '3. Scan suspicious files in user profile' -ForegroundColor Magenta
-        Write-Host '4. Generate compliance report' -ForegroundColor Magenta
-        Write-Host '5. Run vulnerability scan' -ForegroundColor Magenta
-        Write-Host '6. Back to main menu' -ForegroundColor Magenta
-        $auditChoice = Read-Host 'Select an audit option'
-
-        switch ($auditChoice) {
-            '1' {
-                Write-Section 'Installed Software'
-                $apps = Get-InstalledApplications
-                if ((Get-CountAsInt $apps) -eq 0) {
-                    Write-Host 'No installed software was found.' -ForegroundColor Red
-                }
-                else {
-                    $apps | Select-Object Name, Vendor, Version, InstallLocation | Format-Table -AutoSize
-                }
-            }
-            '2' {
-                Write-Section 'Startup / Autorun Items'
-                $startup = Get-StartupItems
-                if ((Get-CountAsInt $startup) -eq 0) {
-                    Write-Host 'No startup items were found.' -ForegroundColor Red
-                }
-                else {
-                    $startup | Select-Object Type, Name, Value, Source | Format-Table -AutoSize
-                }
-            }
-            '3' {
-                $defaultRoot = Get-DefaultScanRoot
-                $scanRoot = Read-Host "Enter the folder to scan (default: $defaultRoot)"
-                if ([string]::IsNullOrWhiteSpace($scanRoot)) { $scanRoot = $defaultRoot }
-                $suspicious = Get-SuspiciousFiles -RootPath $scanRoot
-                if ((Get-CountAsInt $suspicious) -eq 0) {
-                    Write-Host "No suspicious files found under '$scanRoot'." -ForegroundColor Red
-                }
-                else {
-                    $suspicious | Select-Object FullName, Extension, Length, LastWriteTime | Format-Table -AutoSize
-                }
-            }
-            '4' {
-                $output = Read-Host 'Enter report output path (default: TEMP\CyberHardening_Report.txt)'
-                if ([string]::IsNullOrWhiteSpace($output)) { $output = (Join-Path $env:TEMP 'CyberHardening_Report.txt') }
-                Export-ComplianceReport -OutputPath $output
-            }
-            '5' {
-                Invoke-VulnerabilityScan
-            }
-            '6' {
-                return
-            }
-            default {
-                Write-Log 'Invalid audit option selected.' -Level 'WARN'
-            }
-        }
-
-        Write-Host ''
-    } while ($true)
 }
 
 function Search-FilesByType {
@@ -1120,9 +1071,6 @@ function Invoke-CyberToolMenu {
                 Invoke-VulnerabilityScan
             }
             '11' {
-                Invoke-AssessmentMenu
-            }
-            '12' {
                 Write-Log 'Exiting Cyber tool.' -Level 'INFO'
                 return
             }
