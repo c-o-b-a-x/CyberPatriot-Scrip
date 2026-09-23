@@ -1406,6 +1406,23 @@ if ($guest) {
     }
 }
 
+Write-Section 'Password Requirement Enforcement'
+$allLocalAccounts = Get-LocalUser -ErrorAction SilentlyContinue | Where-Object { $_.Name -notin @('Administrator', 'Guest', 'DefaultAccount', 'WDAGUtilityAccount') }
+foreach ($localAccount in $allLocalAccounts) {
+    try {
+        if ($DryRun) {
+            Write-Log "Dry run: would set password requirement for '$($localAccount.Name)' to YES." -Level 'INFO'
+            continue
+        }
+
+        net user "$($localAccount.Name)" /PASSWORDREQ:YES | Out-Null
+        Write-Log "Set password requirement to YES for user '$($localAccount.Name)'." -Level 'SUCCESS'
+    }
+    catch {
+        Write-Log "Could not enforce password requirement for '$($localAccount.Name)'. Review manually." -Level 'WARN'
+    }
+}
+
 Write-Section 'User Account Control and Security Options'
 $uacKeys = @(
     @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='EnableLUA'; Value=1},
