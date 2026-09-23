@@ -20,7 +20,7 @@ function Initialize-ConsoleTheme {
         Clear-Host
     }
     catch {
-        Write-Host 'Console theme override not supported in this host; continuing normally.' -ForegroundColor Yellow
+        Write-Host 'Console theme override not supported in this host; continuing normally.' -ForegroundColor Red
     }
 }
 
@@ -680,7 +680,7 @@ function Invoke-AssessmentMenu {
                 Write-Section 'Installed Software'
                 $apps = Get-InstalledApplications
                 if ((Get-CountAsInt $apps) -eq 0) {
-                    Write-Host 'No installed software was found.' -ForegroundColor Yellow
+                    Write-Host 'No installed software was found.' -ForegroundColor Red
                 }
                 else {
                     $apps | Select-Object Name, Vendor, Version, InstallLocation | Format-Table -AutoSize
@@ -690,7 +690,7 @@ function Invoke-AssessmentMenu {
                 Write-Section 'Startup / Autorun Items'
                 $startup = Get-StartupItems
                 if ((Get-CountAsInt $startup) -eq 0) {
-                    Write-Host 'No startup items were found.' -ForegroundColor Yellow
+                    Write-Host 'No startup items were found.' -ForegroundColor Red
                 }
                 else {
                     $startup | Select-Object Type, Name, Value, Source | Format-Table -AutoSize
@@ -702,7 +702,7 @@ function Invoke-AssessmentMenu {
                 if ([string]::IsNullOrWhiteSpace($scanRoot)) { $scanRoot = $defaultRoot }
                 $suspicious = Get-SuspiciousFiles -RootPath $scanRoot
                 if ((Get-CountAsInt $suspicious) -eq 0) {
-                    Write-Host "No suspicious files found under '$scanRoot'." -ForegroundColor Yellow
+                    Write-Host "No suspicious files found under '$scanRoot'." -ForegroundColor Red
                 }
                 else {
                     $suspicious | Select-Object FullName, Extension, Length, LastWriteTime | Format-Table -AutoSize
@@ -1006,12 +1006,12 @@ function Invoke-VulnerabilityScan {
     $totalScore = (($findings | Measure-Object -Property Score -Sum).Sum)
 
     if ($findings.Count -eq 0) {
-        Write-Host 'No findings recorded.' -ForegroundColor Yellow
+        Write-Host 'No findings recorded.' -ForegroundColor Red
         return
     }
 
     $findings | Select-Object Category, Title, Score, Evidence, Recommendation | Format-Table -AutoSize
-    Write-Host "`nTotal likely vulnerability score: $totalScore" -ForegroundColor Yellow
+    Write-Host "`nTotal likely vulnerability score: $totalScore" -ForegroundColor Red
     Write-Host 'This is a manual-review score for likely weak points and should be checked by a human before final submission.' -ForegroundColor Cyan
 }
 
@@ -1168,7 +1168,7 @@ foreach ($adminUser in ($parsedUsers | Where-Object { $_.IsAdmin } | Select-Obje
 
 Write-Host 'Authorized Users:' -ForegroundColor Magenta
 foreach ($standardUser in ($parsedUsers | Where-Object { -not $_.IsAdmin } | Select-Object -ExpandProperty UserName)) {
-    Write-Host "  - $standardUser" -ForegroundColor Yellow
+    Write-Host "  - $standardUser" -ForegroundColor Red
 }
 
 if ((Get-CountAsInt $authorizedUsers) -eq 0) {
@@ -1227,23 +1227,23 @@ if ((Get-CountAsInt $adminUsers) -gt 0) {
     foreach ($user in $adminUsers) { Write-Host "  - $user" -ForegroundColor Green }
 }
 else {
-    Write-Host '  - None' -ForegroundColor Yellow
+    Write-Host '  - None' -ForegroundColor Red
 }
 
 Write-Host 'Approved Standard Users:' -ForegroundColor Magenta
 if ((Get-CountAsInt $standardUsers) -gt 0) {
-    foreach ($user in $standardUsers) { Write-Host "  - $user" -ForegroundColor Yellow }
+    foreach ($user in $standardUsers) { Write-Host "  - $user" -ForegroundColor Red }
 }
 else {
-    Write-Host '  - None' -ForegroundColor Yellow
+    Write-Host '  - None' -ForegroundColor Red
 }
 
 Write-Host 'Kept Unapproved Users:' -ForegroundColor Magenta
 if ((Get-CountAsInt $keptUnapprovedUsers) -gt 0) {
-    foreach ($user in $keptUnapprovedUsers) { Write-Host "  - $user" -ForegroundColor Yellow }
+    foreach ($user in $keptUnapprovedUsers) { Write-Host "  - $user" -ForegroundColor Red }
 }
 else {
-    Write-Host '  - None' -ForegroundColor Yellow
+    Write-Host '  - None' -ForegroundColor Red
 }
 
 Write-Host 'Disabled Unapproved Users:' -ForegroundColor Magenta
@@ -1251,7 +1251,7 @@ if ((Get-CountAsInt $disabledUnapprovedUsers) -gt 0) {
     foreach ($user in $disabledUnapprovedUsers) { Write-Host "  - $user" -ForegroundColor Green }
 }
 else {
-    Write-Host '  - None' -ForegroundColor Yellow
+    Write-Host '  - None' -ForegroundColor Red
 }
 
 Write-Section 'Baseline: Password and Lockout Policies'
@@ -1567,7 +1567,7 @@ foreach ($share in $shares) {
 
 Write-Section 'Browser / Adobe / Java Cleanup'
 # This is a manual review item because browser/toolbar preferences vary by environment.
-Write-Host 'Review browsers and third-party toolbars manually. Update Flash/Reader/Java plugins and remove unauthorized toolbars.' -ForegroundColor Yellow
+Write-Host 'Review browsers and third-party toolbars manually. Update Flash/Reader/Java plugins and remove unauthorized toolbars.' -ForegroundColor Red
 
 Write-Section 'Startup / Login Hardening'
 # Disable OneDrive startup
@@ -1601,7 +1601,7 @@ Write-Host 'Windows firewall, Defender, and core security controls have been ena
 
 Write-Section 'Task Scheduler / Cleanup'
 # Remove common unauthorized scheduled tasks is not broadly safe; review manually.
-Write-Host 'Review scheduled tasks and startup items manually for unauthorized entries.' -ForegroundColor Yellow
+Write-Host 'Review scheduled tasks and startup items manually for unauthorized entries.' -ForegroundColor Red
 
 Write-Section 'Manual Review Items'
 $manualItems = @(
@@ -1618,7 +1618,7 @@ $manualItems = @(
     'Review registry and GPO exceptions that could impact local policy enforcement.'
 )
 for ($i = 0; $i -lt $manualItems.Count; $i++) {
-    Write-Host ($i + 1).ToString() + '. ' + $manualItems[$i] -ForegroundColor Yellow
+    Write-Host ($i + 1).ToString() + '. ' + $manualItems[$i] -ForegroundColor Red
 }
 
 Write-Host "`nHardening script completed. Review the manual items above before final sign-off." -ForegroundColor Green
