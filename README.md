@@ -1,85 +1,64 @@
 # Cyber Hardening Toolkit
 
-This script is basically a local Windows cleanup and hardening helper. It can create users, manage groups, check local accounts, uninstall software, apply common security changes, and help you review a machine for obvious problem areas.
+This is a small PowerShell tool for basic Windows hardening and account cleanup. It gives you a menu for common tasks, so you do not have to remember every command by hand.
 
-Think of it as a practical tool for someone who wants a faster starting point without blindly changing everything on a system.
+It can change real system settings. Read through the script first and do not run it on an important machine without knowing what each option does.
 
-## What you need
-- Windows machine
+## Before you start
+
+You will need:
+
+- a Windows computer
 - PowerShell
-- Administrator rights
-- A willingness to review anything risky before you let it run
+- an Administrator PowerShell window
 
-## Quick start
-1. Open PowerShell as Administrator.
-2. If needed, allow local scripts to run:
-   ```powershell
-   Set-ExecutionPolicy Unrestricted -Scope LocalMachine
-   ```
-3. Download the script to your Desktop:
-   ```powershell
-   curl -L -o "$HOME\Desktop\CyberHardening.ps1" https://raw.githubusercontent.com/c-o-b-a-x/CyberPatriot-Scrip/refs/heads/main/CyberHardening.ps1
-   ```
-4. Run it from the Desktop:
-   ```powershell
-   .\Desktop\CyberHardening.ps1
-   ```
+## Running it
 
-## A few important notes
-- This is meant for local Windows administration and hardening tasks.
-- Some actions need elevated privileges and can affect security settings.
-- Always review the script before running it on a production machine or anything important.
-- Be careful with user creation, group membership changes, and uninstalling software.
+Open PowerShell as Administrator, move to the folder containing the script, and run:
 
-## What it can do
-- create local users
-- create local groups
+```powershell
+.\script.ps1
+```
+
+If Windows blocks local scripts, you may need to adjust the execution policy first:
+
+```powershell
+Set-ExecutionPolicy Unrestricted -Scope LocalMachine
+```
+
+Only change that setting if you understand the risk, and change it back when you are finished if needed.
+
+## What the menu does
+
+The menu lets you:
+
+- create local users and groups
 - add or remove users from groups
-- review approved vs. unapproved local accounts
-- disable unwanted accounts with a confirmation step
-- uninstall a list of applications
-- apply common hardening settings
-- search for files by type, such as media, archives, executables, and documents
-- scan installed software, startup items, and suspicious files
-- export a simple compliance report for review
-- give you a simple console menu instead of a GUI
+- add a user to Remote Desktop Users
+- list local users and groups
+- run the hardening routine
+- run a quick security scan
 
-## The menu
-When you launch it, you get a menu with options like:
-- create a local group
-- create a local user
-- add a user to a group
-- remove a user from a group
-- list local users
-- list local groups
-- run the hardening checklist
-- uninstall applications
-- search for file types
-- open the system audit and reporting menu
-- exit the tool
+The hardening routine asks for the approved users first. It then checks local accounts, applies password and audit settings, enables security features, turns off several older services and features, and adjusts common network and login settings.
 
-## Audit and reporting
-The audit section is there to help you spot things that are easy to miss:
-- what software is installed
-- what is launching at startup
-- what suspicious files are sitting around in a folder
-- a simple report you can save for documentation or review
+## Important warning
 
-This part is meant to support investigation, not silently change things without human review.
+Some choices make immediate changes to Windows. The script can disable accounts, change group membership, change firewall and Defender settings, and disable services or Windows features. Test it in a virtual machine first when possible.
 
-## What this does not cover completely
-This is a useful automation tool, but it is not a full replacement for every item on a real hardening checklist. Some parts are left for manual review because they depend on the environment, business rules, or how a machine is actually being used.
+The `-WhatIfMode` switch is available for paths that support a dry run:
 
-Things it does not fully automate by default include:
-- browser plugins, toolbars, and browser add-ons
-- Java, Flash, and Adobe plugin checks
-- deep review of every service or startup entry
-- domain-specific or org-specific policy exceptions
-- custom firewall rules beyond the built-in baseline changes
-- full auditing of every registry key, GPO, or policy drift issue
-- any checklist item that needs human judgment in context
-- detailed validation of every installed app or user profile setting
-- advanced incident-response cleanup beyond what is safe and useful for a local review tool
+```powershell
+.\script.ps1 -WhatIfMode
+```
 
-So the script handles the common admin and cleanup work, but it still expects a person to check the sensitive or environment-specific parts before finalizing anything.
+## Still check these yourself
+
+This tool is not a replacement for a full security review. You should still manually check:
+
+- browser extensions, toolbars, Java, and Adobe software
+- every service and startup item
+- organization-specific rules and exceptions
+- firewall rules that are unique to the machine
+- user profiles, installed applications, and registry settings
+- anything on your official hardening checklist that needs human judgment
 

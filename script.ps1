@@ -4,8 +4,7 @@ param(
     [string]$Action,
     [string]$UserName,
     [string]$GroupName,
-    [string]$Password,
-    [string[]]$AppNames
+    [string]$Password
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,12 +14,11 @@ function Initialize-ConsoleTheme {
     try {
         $rawUi = $Host.UI.RawUI
         $rawUi.BackgroundColor = 'Black'
-        $rawUi.ForegroundColor = 'White'
-        $rawUi.WindowTitle = 'Cyber Hardening Toolkit'
+        $rawUi.WindowTitle = 'ECTS WIN 11 Terminal'
         Clear-Host
     }
     catch {
-        Write-Host 'Console theme override not supported in this host; continuing normally.' -ForegroundColor Red
+        Write-Host 'theme skipped' -ForegroundColor Red
     }
 }
 
@@ -28,21 +26,21 @@ function Show-AsciiLogo {
     $logo = @'
                                                                                              
                                  .####.                                                     
-                                ##.  ##                                                     
+                                ##.  ##                                                      
                                 ##  ##                                                       
-                               ##    ##                                                      
-                               #     ##                                                      
-                              .#     #.                                                      
-                              .#     .#.#####..####                                          
-                              ##      ###         ##                                        
+                               ##    ##                                                       
+                               #     ##                                                       
+                              .#     #.                                                       
+                              .#     .#.#####..####                                           
+                              ##      ###         ##                                         
                                #.     ##          ###                                        
                                ##        ##         .##                                      
                                ##      .##  .##      ##                                      
                                ##        ##  ##      .##                                    
-                              .#         ##.   #      ##                                   
+                              .#         ##.   #      ##                                    
                                ####        #####     ###                                    
                                   ##.              ###                                       
-                                   ##             ###                                       
+                                   ##             ###                                        
                            ..       ###      . ####    ########                             
                         ##.  .#####   #######     ###         ##                            
                      .###          ###          .##            ###                           
@@ -61,20 +59,15 @@ function Show-AsciiLogo {
               ##         ####                                  ##  ##                       
                #######.#.                                     ##  ###                       
                                                                #####                        
-                                                                                              
+                                                                                             
 '@
 
-    $logo = $logo -split "`r?`n"
-
-    Write-Host ''
-    foreach ($line in $logo) {
+    foreach ($line in ($logo -split "`r?`n")) {
         Write-Host $line -ForegroundColor Magenta
     }
 
-    Write-Host '=================================================================' -ForegroundColor DarkCyan
-    Write-Host '  CYBER HARDENING TOOLKIT' -ForegroundColor White -BackgroundColor Black
-    Write-Host '  Local Security, User Management, and System Review Utility' -ForegroundColor Green
-    Write-Host '=================================================================' -ForegroundColor DarkCyan
+
+    Write-Host '=================================================================================' -ForegroundColor Magenta
     Write-Host ''
 }
 
@@ -86,58 +79,16 @@ function Get-CountAsInt {
     )
 
     if ($null -eq $Value) { return $Default }
-    if ($Value -is [System.Array]) { return [int]@($Value).Count }
-    if ($Value -is [string]) {
-        if ([string]::IsNullOrWhiteSpace($Value)) { return $Default }
-        try { return [int]$Value } catch { return $Default }
-    }
-    if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
-        try { return [int]@($Value).Count } catch { return $Default }
-    }
-    if ($Value -is [int] -or $Value -is [long] -or $Value -is [short] -or $Value -is [byte]) {
-        return [int]$Value
-    }
-    try { return [int]$Value } catch { return $Default }
+    return [int]@($Value).Count
 }
-
-function Get-CollectionCount {
-    param(
-        [AllowNull()]
-        [object]$Value,
-        [int]$Default = 0
-    )
-
-    return Get-CountAsInt -Value $Value -Default $Default
-}
-
-
-
-$logDir = Join-Path $env:TEMP 'CyberHardening'
-$logPath = Join-Path $logDir 'CyberHardening.log'
-if (-not (Test-Path $logDir)) {
-    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-}
-Set-Content -Path $logPath -Value "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [INFO] Starting Cyber Hardening log.`r`n" -Encoding UTF8
 
 function Write-Log {
-    param(
-        [string]$Message,
-        [ValidateSet('INFO', 'SUCCESS', 'WARN', 'ERROR')]
-        [string]$Level = 'INFO'
-    )
+    param([string]$Message)
 
     $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $entry = "[$timestamp] [$Level] $Message"
-    $color = 'Gray'
+    $entry = "[$timestamp] [ERROR] $Message"
 
-    switch ($Level) {
-        'SUCCESS' { $color = 'Green' }
-        'WARN' { $color = 'Yellow' }
-        'ERROR' { $color = 'Red' }
-    }
-
-    Write-Host $entry -ForegroundColor $color
-    Add-Content -Path $logPath -Value $entry -Encoding UTF8
+    Write-Host $entry -ForegroundColor Red
 }
 
 function Parse-FormattedUserList {
@@ -174,21 +125,12 @@ function Parse-FormattedUserList {
         if (-not [string]::IsNullOrWhiteSpace($normalized)) {
             $result += [PSCustomObject]@{
                 UserName = $normalized
-                IsAdmin = ($currentGroup -eq 'Admin')
+                IsAdmin  = ($currentGroup -eq 'Admin')
             }
         }
     }
 
     return $result
-}
-
-function Write-Section {
-    param([string]$Name)
-    Write-Log "`n=== $Name ===" -Level 'INFO'
-    Write-Host "" 
-    Write-Host ('=' * 80) -ForegroundColor DarkCyan
-    Write-Host "  $Name" -ForegroundColor White -BackgroundColor Black
-    Write-Host ('=' * 80) -ForegroundColor DarkCyan
 }
 
 function Set-RegistryDword {
@@ -199,7 +141,7 @@ function Set-RegistryDword {
     )
 
     if (-not (Test-Path $Path)) {
-        New-Item -Path $Path -Force | Out-Null
+        New-Item -Path $Path -Force
     }
 
     Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force
@@ -213,7 +155,7 @@ function Set-RegistryString {
     )
 
     if (-not (Test-Path $Path)) {
-        New-Item -Path $Path -Force | Out-Null
+        New-Item -Path $Path -Force
     }
 
     Set-ItemProperty -Path $Path -Name $Name -Value $Value -Force
@@ -236,21 +178,18 @@ function Get-DefaultScanRoot {
 }
 
 function Enable-WindowsSecurityBaseline {
-    Write-Section 'Windows Security Baseline'
-
     $firewallProfiles = @('Domain', 'Public', 'Private')
     foreach ($profile in $firewallProfiles) {
         try {
-            Get-NetFirewallProfile -Name $profile -ErrorAction Stop | Out-Null
-            Set-NetFirewallProfile -Name $profile -Enabled True -DefaultInboundAction Block -DefaultOutboundAction Allow -NotifyOnListen True -LogFileName "$env:SystemRoot\System32\LogFiles\Firewall\pfirewall.log" -LogFileSizeKilobytes 4096 -LogDroppedPackets True -LogSuccessfulConnections False -ErrorAction Stop
-            Write-Log "Enabled and hardened firewall profile '$profile'." -Level 'SUCCESS'
+            Get-NetFirewallProfile -Name $profile -ErrorAction Stop
+            Set-NetFirewallProfile -Name $profile -Enabled True -DefaultInboundAction Block -DefaultOutboundAction Allow -NotifyOnListen True -LogFileName "$env:SystemRoot\System32\LogFiles\Firewall\pfirewall.log" -LogMaxSizeKilobytes 4096 -LogBlocked True -LogAllowed False -ErrorAction Stop
         }
         catch {
-            Write-Log "Firewall profile '$profile' could not be hardened automatically. Review manually." -Level 'WARN'
+            Write-Log "firewall profile '$profile' failed: $($_.Exception.Message)"
         }
     }
 
-    foreach ($serviceName in @('MpsSvc', 'WinDefend', 'WdNisSvc', 'wscsvc', 'SecurityHealthService')) {
+    foreach ($serviceName in @('MpsSvc', 'WinDefend', 'wscsvc')) {
         try {
             $svc = Get-Service -Name $serviceName -ErrorAction Stop
             if ($svc.StartType -ne 'Automatic') {
@@ -259,24 +198,21 @@ function Enable-WindowsSecurityBaseline {
             if ($svc.Status -ne 'Running') {
                 Start-Service -Name $serviceName -ErrorAction SilentlyContinue
             }
-            Write-Log "Ensured service '$serviceName' is running and set to automatic startup." -Level 'SUCCESS'
         }
         catch {
-            Write-Log "Service '$serviceName' is not available on this host; skipping." -Level 'INFO'
+            Write-Log "service '$serviceName' failed: $($_.Exception.Message)"
         }
     }
 
     $securityRegistry = @(
-        @{Path='HKLM:\SOFTWARE\Microsoft\Windows Defender'; Name='DisableAntiSpyware'; Value=0},
-        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender'; Name='DisableAntiSpyware'; Value=0},
-        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name='DisableRealtimeMonitoring'; Value=0},
-        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name='DisableBehaviorMonitoring'; Value=0},
-        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name='DisableOnAccessProtection'; Value=0},
-        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name='DisableScanOnRealtimeEnable'; Value=0},
-        @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='EnableLUA'; Value=1},
-        @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='ConsentPromptBehaviorAdmin'; Value=5},
-        @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='PromptOnSecureDesktop'; Value=1},
-        @{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging'; Name='EnableScriptBlockLogging'; Value=1}
+        @{Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name = 'DisableRealtimeMonitoring'; Value = 0 },
+        @{Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name = 'DisableBehaviorMonitoring'; Value = 0 },
+        @{Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name = 'DisableOnAccessProtection'; Value = 0 },
+        @{Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'; Name = 'DisableScanOnRealtimeEnable'; Value = 0 },
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'EnableLUA'; Value = 1 },
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'ConsentPromptBehaviorAdmin'; Value = 5 },
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'PromptOnSecureDesktop'; Value = 1 },
+        @{Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging'; Name = 'EnableScriptBlockLogging'; Value = 1 }
     )
 
     foreach ($entry in $securityRegistry) {
@@ -284,7 +220,7 @@ function Enable-WindowsSecurityBaseline {
             Set-RegistryDword -Path $entry.Path -Name $entry.Name -Value $entry.Value
         }
         catch {
-            Write-Log "Could not set $($entry.Path)\$($entry.Name) to $($entry.Value)." -Level 'WARN'
+            Write-Log "setting failed: $($entry.Path)\$($entry.Name): $($_.Exception.Message)"
         }
     }
 
@@ -293,28 +229,27 @@ function Enable-WindowsSecurityBaseline {
         Set-MpPreference -PUAProtection 1 -ErrorAction Stop
         Set-MpPreference -ScanAvgCPULoadFactor 5 -ErrorAction Stop
         Set-MpPreference -MAPSReporting 1 -ErrorAction Stop
-        Write-Log 'Windows Defender is set to actively protect the machine.' -Level 'SUCCESS'
     }
     catch {
-        Write-Log 'Windows Defender cmdlets were unavailable; Defender settings were not fully enforced automatically.' -Level 'WARN'
+        Write-Log 'Defender settings failed'
     }
-
-    Write-Log 'Windows Security baseline has been applied to the extent supported by this host.' -Level 'SUCCESS'
 }
 
 function Disable-ServiceSafely {
     param([string]$ServiceName)
 
+    $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if (-not $svc) { return }
+
     try {
-        $svc = Get-Service -Name $ServiceName -ErrorAction Stop
         if ($svc.Status -ne 'Stopped') {
             Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
         }
         Set-Service -Name $ServiceName -StartupType Disabled
-        Write-Host "Disabled service: $ServiceName" -ForegroundColor Green
+        Write-Host "Disabled service: $ServiceName"
     }
     catch {
-        Write-Warning "Service '$ServiceName' not found or unavailable; skipping."
+        Write-Log "service '$ServiceName' unavailable: $($_.Exception.Message)"
     }
 }
 
@@ -323,33 +258,11 @@ function Disable-OptionalFeatureSafely {
 
     try {
         if (Get-WindowsOptionalFeature -Online -FeatureName $FeatureName -ErrorAction Stop) {
-            Disable-WindowsOptionalFeature -Online -FeatureName $FeatureName -NoRestart -ErrorAction Stop | Out-Null
-            Write-Host "Disabled optional feature: $FeatureName" -ForegroundColor Green
+            Disable-WindowsOptionalFeature -Online -FeatureName $FeatureName -NoRestart -ErrorAction Stop
         }
     }
     catch {
-        Write-Warning "Optional feature '$FeatureName' not found or cannot be disabled; skipping."
-    }
-}
-
-function Ensure-PolicyValue {
-    param(
-        [string]$Path,
-        [string]$Name,
-        [int]$Value
-    )
-
-    try {
-        if (-not (Test-Path $Path)) {
-            New-Item -Path $Path -Force | Out-Null
-        }
-        $current = (Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue).$Name
-        if ($null -eq $current -or $current -ne $Value) {
-            Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force
-        }
-    }
-    catch {
-        Write-Warning "Could not set $Path\$Name to $Value"
+        Write-Log "feature '$FeatureName' failed"
     }
 }
 
@@ -357,7 +270,7 @@ function Ensure-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($identity)
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        Write-Log 'This operation requires administrator rights.' -Level 'ERROR'
+        Write-Log 'admin rights required'
         throw 'This script must be run as Administrator.'
     }
 }
@@ -373,17 +286,14 @@ function New-CyberGroup {
 
     $existingGroup = Get-LocalGroup -Name $Name -ErrorAction SilentlyContinue
     if ($existingGroup) {
-        Write-Log "Local group '$Name' already exists." -Level 'WARN'
         return $existingGroup
     }
 
     if ($DryRun) {
-        Write-Log "Dry run: would create local group '$Name'." -Level 'INFO'
         return $null
     }
 
     $group = New-LocalGroup -Name $Name -Description $Description
-    Write-Log "Created local group '$Name'." -Level 'SUCCESS'
     return $group
 }
 
@@ -400,7 +310,6 @@ function New-CyberUser {
 
     $existingUser = Get-LocalUser -Name $UserName -ErrorAction SilentlyContinue
     if ($existingUser) {
-        Write-Log "Local user '$UserName' already exists." -Level 'WARN'
         return $existingUser
     }
 
@@ -409,12 +318,10 @@ function New-CyberUser {
     }
 
     if ($DryRun) {
-        Write-Log "Dry run: would create local user '$UserName'." -Level 'INFO'
         return $null
     }
 
     $newUser = New-LocalUser -Name $UserName -Password (ConvertTo-SecureString -String $Password -AsPlainText -Force) -FullName $FullName -Description $Description
-    Write-Log "Created local user '$UserName'." -Level 'SUCCESS'
     return $newUser
 }
 
@@ -436,22 +343,19 @@ function Add-CyberUserToGroup {
     }
 
     if (-not $group) {
-        $group = New-CyberGroup -Name $GroupName
+        New-CyberGroup -Name $GroupName
     }
 
     $alreadyMember = Get-LocalGroupMember -Group $GroupName -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "\\$UserName$|^$UserName$" }
     if ($alreadyMember) {
-        Write-Log "User '$UserName' is already a member of group '$GroupName'." -Level 'WARN'
         return
     }
 
     if ($DryRun) {
-        Write-Log "Dry run: would add user '$UserName' to group '$GroupName'." -Level 'INFO'
         return
     }
 
     Add-LocalGroupMember -Group $GroupName -Member $UserName -ErrorAction Stop
-    Write-Log "Added user '$UserName' to group '$GroupName'." -Level 'SUCCESS'
 }
 
 function Add-CyberUserToRdpGroup {
@@ -463,7 +367,6 @@ function Add-CyberUserToRdpGroup {
     $rdpGroup = 'Remote Desktop Users'
     $group = Get-LocalGroup -Name $rdpGroup -ErrorAction SilentlyContinue
     if (-not $group) {
-        Write-Log "The '$rdpGroup' group does not exist on this system. RDP may not be enabled or the group is unavailable." -Level 'WARN'
         return
     }
 
@@ -482,87 +385,34 @@ function Remove-CyberUserFromGroup {
 
     $group = Get-LocalGroup -Name $GroupName -ErrorAction SilentlyContinue
     if (-not $group) {
-        Write-Log "Group '$GroupName' does not exist." -Level 'WARN'
         return
     }
 
     $member = Get-LocalGroupMember -Group $GroupName -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "\\$UserName$|^$UserName$" }
     if (-not $member) {
-        Write-Log "User '$UserName' is not a member of '$GroupName'." -Level 'WARN'
         return
     }
 
     if ($DryRun) {
-        Write-Log "Dry run: would remove user '$UserName' from group '$GroupName'." -Level 'INFO'
         return
     }
 
     Remove-LocalGroupMember -Group $GroupName -Member $UserName -ErrorAction Stop
-    Write-Log "Removed user '$UserName' from group '$GroupName'." -Level 'SUCCESS'
 }
 
 function Show-CyberMenu {
     Write-Host ''
-    Write-Host '=================================================================' -ForegroundColor DarkGreen
-    Write-Host '                         CYBER TOOL MENU' -ForegroundColor Green
-    Write-Host '=================================================================' -ForegroundColor DarkGreen
-    Write-Host '1.  Run hardening checklist' -ForegroundColor Magenta
-    Write-Host '2.  Create local group' -ForegroundColor Magenta
-    Write-Host '3.  Create local user' -ForegroundColor Magenta
-    Write-Host '4.  Add user to group' -ForegroundColor Magenta
-    Write-Host '5.  Add user to Remote Desktop Users' -ForegroundColor Magenta
-    Write-Host '6.  Remove user from group' -ForegroundColor Magenta
-    Write-Host '7.  List local users' -ForegroundColor Magenta
-    Write-Host '8.  List local groups' -ForegroundColor Magenta
-    Write-Host '9.  Uninstall application list' -ForegroundColor Magenta
-    Write-Host '10. Search file types' -ForegroundColor Magenta
-    Write-Host '11. Vulnerability scan' -ForegroundColor Magenta
-    Write-Host '12. Exit' -ForegroundColor Red
-    Write-Host '=================================================================' -ForegroundColor DarkGreen
-}
-
-function Get-InstalledApplications {
-    param(
-        [switch]$IncludeSlowCimScan
-    )
-
-    $software = @()
-
-    if ($IncludeSlowCimScan) {
-        try {
-            $software += Get-CimInstance Win32_Product -ErrorAction SilentlyContinue | Select-Object Name, Vendor, Version, InstallLocation
-        }
-        catch {
-            Write-Log 'Could not enumerate Win32_Product entries; falling back to registry uninstall data.' -Level 'WARN'
-        }
-    }
-
-    $registryPaths = @(
-        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall',
-        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
-    )
-
-    foreach ($path in $registryPaths) {
-        if (-not (Test-Path $path)) { continue }
-
-        $items = Get-ChildItem -Path $path -ErrorAction SilentlyContinue
-        foreach ($item in $items) {
-            $props = Get-ItemProperty -Path $item.PSPath -ErrorAction SilentlyContinue
-            if (-not $props) { continue }
-
-            $displayName = $props.DisplayName
-            if ([string]::IsNullOrWhiteSpace($displayName)) { continue }
-
-            $software += [PSCustomObject]@{
-                Name = $displayName
-                Vendor = $props.Publisher
-                Version = $props.DisplayVersion
-                InstallLocation = $props.InstallLocation
-            }
-        }
-    }
-
-    return $software | Sort-Object Name -Unique
+    Write-Host 'Menu'
+    Write-Host '1: harden'
+    Write-Host '2: new group'
+    Write-Host '3: new user'
+    Write-Host '4: add to group'
+    Write-Host '5: add to RDP'
+    Write-Host '6: remove from group'
+    Write-Host '7: list users'
+    Write-Host '8: list groups'
+    Write-Host '9: scan'
+    Write-Host ''
 }
 
 function Get-StartupItems {
@@ -585,9 +435,9 @@ function Get-StartupItems {
             if ($prop.Name -match 'PSPath|PSParentPath|PSChildName|PSDrive|PSProvider') { continue }
             $items += [PSCustomObject]@{
                 Source = $path
-                Name = $prop.Name
-                Value = $prop.Value
-                Type = 'RegistryRunKey'
+                Name   = $prop.Name
+                Value  = $prop.Value
+                Type   = 'RegistryRunKey'
             }
         }
     }
@@ -597,9 +447,9 @@ function Get-StartupItems {
         Get-ChildItem -Path $startupFolder -File -ErrorAction SilentlyContinue | ForEach-Object {
             $items += [PSCustomObject]@{
                 Source = $startupFolder
-                Name = $_.Name
-                Value = $_.FullName
-                Type = 'StartupFolder'
+                Name   = $_.Name
+                Value  = $_.FullName
+                Type   = 'StartupFolder'
             }
         }
     }
@@ -608,223 +458,16 @@ function Get-StartupItems {
         Get-ScheduledTask -ErrorAction SilentlyContinue | ForEach-Object {
             $items += [PSCustomObject]@{
                 Source = 'ScheduledTask'
-                Name = $_.TaskName
-                Value = $_.Actions.Execute
-                Type = 'ScheduledTask'
+                Name   = $_.TaskName
+                Value  = $_.Actions.Execute
+                Type   = 'ScheduledTask'
             }
         }
     }
     catch {
-        Write-Log 'Scheduled tasks are not available for inspection on this system.' -Level 'WARN'
     }
 
     return $items | Sort-Object Type, Name
-}
-
-function Get-SuspiciousFiles {
-    param(
-        [string]$RootPath = $env:USERPROFILE,
-        [string[]]$Extensions = @('exe', 'dll', 'bat', 'cmd', 'ps1', 'vbs', 'js', 'jar', 'com', 'scr', 'hta')
-    )
-
-    if ([string]::IsNullOrWhiteSpace($RootPath)) {
-        $RootPath = Get-DefaultScanRoot
-    }
-
-    $root = $RootPath.Trim()
-    if (-not (Test-Path -LiteralPath $root)) {
-        throw "Path '$root' does not exist."
-    }
-
-    $extList = @()
-    foreach ($ext in $Extensions) {
-        if (-not [string]::IsNullOrWhiteSpace($ext)) {
-            $extList += $ext.Trim().TrimStart('.').ToLowerInvariant()
-        }
-    }
-
-    $results = Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue |
-        Where-Object {
-            $ext = $_.Extension.TrimStart('.').ToLowerInvariant()
-            $extList -contains $ext
-        } |
-        Select-Object FullName, Extension, Length, LastWriteTime
-
-    return $results | Sort-Object FullName
-}
-
-function Export-ComplianceReport {
-    param(
-        [string]$OutputPath = (Join-Path $env:TEMP 'CyberHardening_Report.txt')
-    )
-
-    $apps = Get-InstalledApplications
-    $startup = Get-StartupItems
-    $suspicious = @()
-
-    try {
-        $defaultRoot = Get-DefaultScanRoot
-        $suspicious = Get-SuspiciousFiles -RootPath $defaultRoot
-    }
-    catch {
-        Write-Log 'Could not generate suspicious file report for the default scan root.' -Level 'WARN'
-        $suspicious = @()
-    }
-
-    $report = @(
-        'Cyber Hardening Compliance Report',
-        "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
-        '',
-        'Installed Applications:',
-        ($apps | ForEach-Object { "- $($_.Name) [$($_.Version)] [$($_.Vendor)]" }) -join "`r`n",
-        '',
-        'Startup / AutoRun Items:',
-        ($startup | ForEach-Object { "- $($_.Type): $($_.Name) -> $($_.Value)" }) -join "`r`n",
-        '',
-        'Suspicious Files:',
-        ($suspicious | ForEach-Object { "- $($_.FullName) [$($_.Extension)]" }) -join "`r`n",
-        '',
-        'Summary:',
-        "Installed software count: $((Get-CountAsInt $apps))",
-        "Startup item count: $((Get-CountAsInt $startup))",
-        "Suspicious file count: $((Get-CountAsInt $suspicious))"
-    )
-
-    $reportText = $report -join "`r`n"
-    $reportText | Set-Content -Path $OutputPath -Encoding UTF8
-    Write-Log "Compliance report written to '$OutputPath'." -Level 'SUCCESS'
-    return $OutputPath
-}
-
-function Search-FilesByType {
-    param(
-        [string]$RootPath,
-        [Parameter(Mandatory = $true)]
-        [string[]]$Extensions,
-        [string]$CategoryName = 'Files'
-    )
-
-    $validatedRoot = if ([string]::IsNullOrWhiteSpace($RootPath)) { Get-DefaultScanRoot } else { $RootPath.Trim() }
-    if ([string]::IsNullOrWhiteSpace($validatedRoot)) {
-        $validatedRoot = Get-DefaultScanRoot
-    }
-
-    if (-not (Test-Path -LiteralPath $validatedRoot)) {
-        throw "Path '$validatedRoot' does not exist."
-    }
-
-    $normalizedExts = @()
-    foreach ($ext in $Extensions) {
-        if ([string]::IsNullOrWhiteSpace($ext)) { continue }
-        $normalizedExts += $ext.Trim().TrimStart('.').ToLowerInvariant()
-    }
-
-    $normalizedExts = $normalizedExts | Sort-Object -Unique
-    if ((Get-CountAsInt $normalizedExts) -eq 0) {
-        throw 'No file extensions were provided for the search.'
-    }
-
-    $items = Get-ChildItem -Path $validatedRoot -Recurse -File -ErrorAction SilentlyContinue |
-        Where-Object {
-            $ext = $_.Extension.TrimStart('.').ToLowerInvariant()
-            $normalizedExts -contains $ext
-        } |
-        Sort-Object -Property FullName
-
-    if ((Get-CountAsInt $items) -eq 0) {
-        Write-Log "No $CategoryName files found under '$validatedRoot'." -Level 'WARN'
-        return @()
-    }
-
-    Write-Section "$CategoryName file search"
-    Write-Log "Searching '$validatedRoot' for $CategoryName files. Extensions: $($normalizedExts -join ', ')" -Level 'INFO'
-    $items | Select-Object FullName, Length, LastWriteTime | Format-Table -AutoSize
-    return $items
-}
-
-function Show-FileSearchMenu {
-    Write-Section 'File Type Search'
-    Write-Host ('Default search root: ' + (Get-DefaultScanRoot)) -ForegroundColor Cyan
-    Write-Host '1. Media files (.mp3, .mp4, .jpg, .png, .avi, .mov, .wav)' -ForegroundColor Magenta
-    Write-Host '2. Archive files (.zip, .rar, .7z, .tar, .gz, .iso)' -ForegroundColor Magenta
-    Write-Host '3. Executables and installers (.exe, .msi, .dll, .bat, .cmd, .ps1)' -ForegroundColor Magenta
-    Write-Host '4. Documents (.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .txt)' -ForegroundColor Magenta
-    Write-Host '5. Custom extension list' -ForegroundColor Magenta
-    Write-Host '6. Back to main menu' -ForegroundColor Magenta
-}
-
-function Uninstall-ApplicationList {
-    param(
-        [string[]]$Applications
-    )
-
-    Ensure-Administrator
-
-    $targets = @()
-    if ((Get-CountAsInt $Applications) -gt 0) {
-        $targets = @($Applications)
-    }
-    else {
-        $rawInput = Read-Host 'Paste application names to uninstall, one per line. Press Enter on a blank line to finish.'
-        $targets = @()
-        while (-not [string]::IsNullOrWhiteSpace($rawInput)) {
-            $targets += $rawInput.Trim()
-            $rawInput = Read-Host 'Add another app name or press Enter to finish'
-        }
-    }
-
-    $targets = @($targets | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-    if ((Get-CountAsInt $targets) -eq 0) {
-        Write-Log 'No application names were provided for uninstall.' -Level 'WARN'
-        return
-    }
-
-    Write-Section 'Application Uninstall'
-    foreach ($target in $targets) {
-        $name = $target.Trim()
-        if ([string]::IsNullOrWhiteSpace($name)) { continue }
-
-        Write-Log "Checking for application: $name" -Level 'INFO'
-        $uninstallMatches = @()
-
-        $uninstallMatches += Get-CimInstance Win32_Product -ErrorAction SilentlyContinue | Where-Object { $_.Name -and $_.Name -match [regex]::Escape($name) }
-        $uninstallMatches += Get-ChildItem 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall', 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' -ErrorAction SilentlyContinue |
-            Get-ItemProperty |
-            Where-Object { $_.DisplayName -and $_.DisplayName -match [regex]::Escape($name) }
-
-        $uniqueMatches = $uninstallMatches | Sort-Object -Property Name, DisplayName -Unique
-
-        if (-not $uniqueMatches -or $uniqueMatches.Count -eq 0) {
-            Write-Log "No matching application found for '$name'." -Level 'WARN'
-            continue
-        }
-
-        foreach ($match in $uniqueMatches) {
-            $displayName = if ($match.DisplayName) { $match.DisplayName } elseif ($match.Name) { $match.Name } else { $name }
-            if ($DryRun) {
-                Write-Log "Dry run: would uninstall '$displayName'." -Level 'INFO'
-                continue
-            }
-
-            try {
-                if ($match -is [Microsoft.Management.Infrastructure.CimInstance]) {
-                    $match | Invoke-CimMethod -MethodName Uninstall | Out-Null
-                }
-                else {
-                    $uninstallString = $match.UninstallString
-                    if (-not $uninstallString) {
-                        throw "No uninstall string found for '$displayName'."
-                    }
-                    Start-Process -FilePath $uninstallString -ArgumentList '/quiet' -Wait -NoNewWindow -ErrorAction Stop
-                }
-
-                Write-Log "Uninstalled application '$displayName'." -Level 'SUCCESS'
-            }
-            catch {
-                Write-Log "Failed to uninstall '$displayName'. Review manually. Error: $($_.Exception.Message)" -Level 'ERROR'
-            }
-        }
-    }
 }
 
 function New-VulnerabilityFinding {
@@ -842,10 +485,10 @@ function New-VulnerabilityFinding {
     )
 
     [PSCustomObject]@{
-        Category = $Category
-        Title = $Title
-        Score = $Score
-        Evidence = $Evidence
+        Category       = $Category
+        Title          = $Title
+        Score          = $Score
+        Evidence       = $Evidence
         Recommendation = $Recommendation
     }
 }
@@ -853,7 +496,7 @@ function New-VulnerabilityFinding {
 function Get-SuspiciousNamedFiles {
     $baseRoot = Get-DefaultScanRoot
     $patterns = @(
-        'mimikatz','psexec','nc.exe','netcat','metasploit','r57','rat','rootkit','backdoor','keylogger','passwordstealer','credential','token','samdump','lsass','dump','revshell','reverse','payload','exploit','loader','dropper','beacon','agent','stealer','inject','hacktool','crack','bypass','runner','evil','malware','shell','pwnd','pwn','adminpass','pass.txt','passw','accountdump','wmic','cmd.exe','powershell.exe'
+        'mimikatz', 'psexec', 'nc.exe', 'netcat', 'metasploit', 'r57', 'rat', 'rootkit', 'backdoor', 'keylogger', 'passwordstealer', 'credential', 'token', 'samdump', 'lsass', 'dump', 'revshell', 'reverse', 'payload', 'exploit', 'loader', 'dropper', 'beacon', 'agent', 'stealer', 'inject', 'hacktool', 'crack', 'bypass', 'runner', 'evil', 'malware', 'shell', 'pwnd', 'pwn', 'adminpass', 'pass.txt', 'passw', 'accountdump', 'wmic', 'cmd.exe', 'powershell.exe'
     )
 
     $fileResults = @()
@@ -868,8 +511,8 @@ function Get-SuspiciousNamedFiles {
                 if ($name.Contains($pattern)) {
                     $fileResults += [PSCustomObject]@{
                         FullName = $file.FullName
-                        Name = $file.Name
-                        Pattern = $pattern
+                        Name     = $file.Name
+                        Pattern  = $pattern
                     }
                     break
                 }
@@ -947,8 +590,7 @@ function Get-VulnerabilityFindings {
 
     $suspiciousNamedFiles = Get-SuspiciousNamedFiles
     if ((Get-CountAsInt $suspiciousNamedFiles) -gt 0) {
-        $highRiskFileCount = @($suspiciousNamedFiles | Where-Object { $_.Pattern -in @('mimikatz','psexec','nc.exe','netcat','metasploit','r57','rat','rootkit','backdoor','keylogger','passwordstealer','credential','token','samdump','lsass','dump','revshell','reverse','payload','exploit','loader','dropper','beacon','agent','stealer','inject','hacktool','crack','bypass','runner','evil','malware','shell','pwnd','pwn','adminpass','pass.txt','passw','accountdump','wmic','cmd.exe','powershell.exe') }).Count
-        $score = if ($highRiskFileCount -gt 0) { 50 } else { 35 }
+        $score = 50
         $sampleNames = ($suspiciousNamedFiles | Select-Object -ExpandProperty Name | Select-Object -First 5) -join ', '
         $findings += New-VulnerabilityFinding -Category 'Files' -Title 'Suspicious file names detected' -Score $score -Evidence "Suspicious file names found: $sampleNames" -Recommendation 'Review these files manually for malicious content, persistence, or unauthorized payloads.'
     }
@@ -969,26 +611,21 @@ function Get-VulnerabilityFindings {
 }
 
 function Invoke-VulnerabilityScan {
-    Write-Section 'CyberPatriot-style Vulnerability Scan'
     $findings = Get-VulnerabilityFindings
     $totalScore = (($findings | Measure-Object -Property Score -Sum).Sum)
 
     if ($findings.Count -eq 0) {
-        Write-Host 'No findings recorded.' -ForegroundColor Red
+        Write-Host 'No findings recorded.'
         return
     }
 
     $findings | Select-Object Category, Title, Score, Evidence, Recommendation | Format-Table -AutoSize
-    Write-Host "`nTotal likely vulnerability score: $totalScore" -ForegroundColor Red
-    Write-Host 'This is a manual-review score for likely weak points and should be checked by a human before final submission.' -ForegroundColor Cyan
+    Write-Host "`nTotal likely vulnerability score: $totalScore"
 }
 
 function Invoke-CyberToolMenu {
     Initialize-ConsoleTheme
-    Clear-Host
     Show-AsciiLogo
-    Write-Host ' Select the task you want to run.' -ForegroundColor Gray
-    Write-Host ''
     do {
         Show-CyberMenu
         $choice = Read-Host 'Select an option'
@@ -1030,73 +667,7 @@ function Invoke-CyberToolMenu {
                 Get-LocalGroup | Select-Object Name, Description | Format-Table -AutoSize
             }
             '9' {
-                Uninstall-ApplicationList
-            }
-            '10' {
-                do {
-                    Show-FileSearchMenu
-                    $fileChoice = Read-Host 'Select a file type search'
-
-                    switch ($fileChoice) {
-                        '1' {
-                            $defaultRoot = Get-DefaultScanRoot
-                            $root = Read-Host "Enter the folder path to search for media files (default: $defaultRoot)"
-                            if ([string]::IsNullOrWhiteSpace($root)) { $root = $defaultRoot }
-                            $exts = @('mp3', 'mp4', 'm4a', 'aac', 'wav', 'flac', 'avi', 'mov', 'wmv', 'mkv', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp')
-                            Search-FilesByType -RootPath $root -Extensions $exts -CategoryName 'Media'
-                        }
-                        '2' {
-                            $defaultRoot = Get-DefaultScanRoot
-                            $root = Read-Host "Enter the folder path to search for archive files (default: $defaultRoot)"
-                            if ([string]::IsNullOrWhiteSpace($root)) { $root = $defaultRoot }
-                            $exts = @('zip', 'rar', '7z', 'tar', 'gz', 'tgz', 'bz2', 'xz', 'iso')
-                            Search-FilesByType -RootPath $root -Extensions $exts -CategoryName 'Archive'
-                        }
-                        '3' {
-                            $defaultRoot = Get-DefaultScanRoot
-                            $root = Read-Host "Enter the folder path to search for executables and installers (default: $defaultRoot)"
-                            if ([string]::IsNullOrWhiteSpace($root)) { $root = $defaultRoot }
-                            $exts = @('exe', 'msi', 'dll', 'bat', 'cmd', 'ps1', 'com', 'scr', 'appx', 'msix')
-                            Search-FilesByType -RootPath $root -Extensions $exts -CategoryName 'Executable'
-                        }
-                        '4' {
-                            $defaultRoot = Get-DefaultScanRoot
-                            $root = Read-Host "Enter the folder path to search for documents (default: $defaultRoot)"
-                            if ([string]::IsNullOrWhiteSpace($root)) { $root = $defaultRoot }
-                            $exts = @('pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'rtf')
-                            Search-FilesByType -RootPath $root -Extensions $exts -CategoryName 'Document'
-                        }
-                        '5' {
-                            $defaultRoot = Get-DefaultScanRoot
-                            $root = Read-Host "Enter the folder path to search for custom types (default: $defaultRoot)"
-                            if ([string]::IsNullOrWhiteSpace($root)) { $root = $defaultRoot }
-                            $customInput = Read-Host 'Enter extensions separated by commas (example: exe,zip,pdf,mp4)'
-                            $exts = @()
-                            if (-not [string]::IsNullOrWhiteSpace($customInput)) {
-                                $exts = $customInput.Split(',') | ForEach-Object { $_.Trim() }
-                            }
-                            Search-FilesByType -RootPath $root -Extensions $exts -CategoryName 'Custom'
-                        }
-                        '6' {
-                            break
-                        }
-                        default {
-                            Write-Log 'Invalid file search option selected.' -Level 'WARN'
-                        }
-                    }
-
-                    Write-Host ''
-                } while ($fileChoice -ne '6')
-            }
-            '11' {
                 Invoke-VulnerabilityScan
-            }
-            '12' {
-                Write-Log 'Exiting Cyber tool.' -Level 'INFO'
-                return
-            }
-            default {
-                Write-Log 'Invalid option selected.' -Level 'WARN'
             }
         }
 
@@ -1106,146 +677,78 @@ function Invoke-CyberToolMenu {
 
 function Invoke-CyberHardening {
 
-Write-Section 'Privilege Check'
-$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = New-Object Security.Principal.WindowsPrincipal($identity)
-if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Log 'Script is not running with administrator rights.' -Level 'ERROR'
-    throw 'This script must be run as Administrator.'
-}
-
-Write-Log 'Administrator context confirmed.' -Level 'SUCCESS'
-
-Write-Section 'Authorized User Setup'
-$authorizedUsers = @()
-$formattedText = Read-Host 'Paste the full formatted list, including "Authorized Administrators:" and "Authorized Users:" headings'
-$parsedUsers = Parse-FormattedUserList -Text $formattedText
-foreach ($entry in $parsedUsers) {
-    $authorizedUsers += [PSCustomObject]@{
-        UserName = $entry.UserName
-        IsAdmin = $entry.IsAdmin
-    }
-    $groupLabel = if ($entry.IsAdmin) { 'Administrator' } else { 'Standard User' }
-    Write-Log "Recorded user: $($entry.UserName) -> $groupLabel" -Level 'SUCCESS'
-}
-
-Write-Host ''
-Write-Host 'Authorized Administrators:' -ForegroundColor Magenta
-foreach ($adminUser in ($parsedUsers | Where-Object { $_.IsAdmin } | Select-Object -ExpandProperty UserName)) {
-    Write-Host "  - $adminUser" -ForegroundColor Green
-}
-
-Write-Host 'Authorized Users:' -ForegroundColor Magenta
-foreach ($standardUser in ($parsedUsers | Where-Object { -not $_.IsAdmin } | Select-Object -ExpandProperty UserName)) {
-    Write-Host "  - $standardUser" -ForegroundColor Red
-}
-
-if ((Get-CountAsInt $authorizedUsers) -eq 0) {
-    Write-Log 'No approved users were entered. The script will continue with base hardening only.' -Level 'WARN'
-}
-else {
-    $approvedNames = ($authorizedUsers | ForEach-Object { $_.UserName }) -join ', '
-    Write-Log "Approved user list: $approvedNames" -Level 'INFO'
-}
-
-$keptUnapprovedUsers = @()
-$disabledUnapprovedUsers = @()
-$builtInExcludedUsers = @('Administrator', 'Guest', 'DefaultAccount', 'WDAGUtilityAccount')
-$allLocalUsers = Get-LocalUser | Where-Object { $_.Name -notin $builtInExcludedUsers }
-$approvedSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-foreach ($entry in $authorizedUsers) {
-    $null = $approvedSet.Add($entry.UserName)
-}
-
-Write-Log 'Scanning local users against the approved list.' -Level 'INFO'
-foreach ($localUser in $allLocalUsers) {
-    if ($approvedSet.Contains($localUser.Name)) {
-        continue
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Log 'Script is not running with administrator rights.'
+        throw 'This script must be run as Administrator.'
     }
 
-    Write-Log "Found unapproved local user: $($localUser.Name)" -Level 'WARN'
-    $removeChoice = Read-Host "User '$($localUser.Name)' is not in the approved list. Remove/disable this account? [Y/N]"
-    if ($removeChoice -match '^(Y|YES|Yes)$') {
-        if ($DryRun) {
-            Write-Log "Dry run: would disable account '$($localUser.Name)'" -Level 'INFO'
-            $keptUnapprovedUsers += $localUser.Name
+    $authorizedUsers = @()
+    $formattedText = Read-Host 'Paste the full formatted list, including "Authorized Administrators:" and "Authorized Users:" headings'
+    $parsedUsers = Parse-FormattedUserList -Text $formattedText
+    foreach ($entry in $parsedUsers) {
+        $authorizedUsers += [PSCustomObject]@{
+            UserName = $entry.UserName
+            IsAdmin  = $entry.IsAdmin
+        }
+    }
+
+    Write-Host ''
+    Write-Host 'Authorized Administrators:'
+    foreach ($adminUser in ($parsedUsers | Where-Object { $_.IsAdmin } | Select-Object -ExpandProperty UserName)) {
+        Write-Host "  - $adminUser"
+    }
+
+    foreach ($standardUser in ($parsedUsers | Where-Object { -not $_.IsAdmin } | Select-Object -ExpandProperty UserName)) {
+        Write-Host "  - $standardUser"
+    }
+
+    $builtInExcludedUsers = @('Administrator', 'Guest', 'DefaultAccount', 'WDAGUtilityAccount')
+    $allLocalUsers = Get-LocalUser | Where-Object { $_.Name -notin $builtInExcludedUsers }
+    $approvedSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($entry in $authorizedUsers) {
+        $null = $approvedSet.Add($entry.UserName)
+    }
+
+    foreach ($localUser in $allLocalUsers) {
+        if ($approvedSet.Contains($localUser.Name)) {
             continue
         }
 
-        try {
-            Disable-LocalUser -Name $localUser.Name -ErrorAction Stop
-            Write-Log "Disabled unapproved local user: $($localUser.Name)" -Level 'SUCCESS'
-            $disabledUnapprovedUsers += $localUser.Name
-        }
-        catch {
-            Write-Log "Could not disable '$($localUser.Name)'. Review manually. Error: $($_.Exception.Message)" -Level 'ERROR'
-            $keptUnapprovedUsers += $localUser.Name
+        $removeChoice = Read-Host "User '$($localUser.Name)' is not in the approved list. Remove/disable this account? [Y/N]"
+        if ($removeChoice -match '^(Y|YES|Yes)$') {
+            if ($DryRun) {
+                continue
+            }
+
+            try {
+                Disable-LocalUser -Name $localUser.Name -ErrorAction Stop
+            }
+            catch {
+                Write-Log "Could not disable '$($localUser.Name)'. Review manually. Error: $($_.Exception.Message)"
+            }
         }
     }
-    else {
-        Write-Log "Kept unapproved account '$($localUser.Name)' because operator chose not to remove it." -Level 'WARN'
-        $keptUnapprovedUsers += $localUser.Name
+
+    net accounts /minpwlen:12
+    net accounts /maxpwage:60
+    net accounts /minpwage:1
+    net accounts /uniquepw:24
+
+    net accounts /lockoutthreshold:10
+    net accounts /lockoutduration:30
+    net accounts /lockoutwindow:30
+
+    # More rules go in the template below.
+
+    $tempDir = Join-Path $env:TEMP 'CyberHardening'
+    if (-not (Test-Path $tempDir)) {
+        New-Item -ItemType Directory -Path $tempDir -Force
     }
-}
 
-Write-Section 'Summary'
-$adminUsers = ($authorizedUsers | Where-Object { $_.IsAdmin } | Select-Object -ExpandProperty UserName)
-$standardUsers = ($authorizedUsers | Where-Object { -not $_.IsAdmin } | Select-Object -ExpandProperty UserName)
-Write-Host 'Approved Admins:' -ForegroundColor Magenta
-if ((Get-CountAsInt $adminUsers) -gt 0) {
-    foreach ($user in $adminUsers) { Write-Host "  - $user" -ForegroundColor Green }
-}
-else {
-    Write-Host '  - None' -ForegroundColor Red
-}
-
-Write-Host 'Approved Standard Users:' -ForegroundColor Magenta
-if ((Get-CountAsInt $standardUsers) -gt 0) {
-    foreach ($user in $standardUsers) { Write-Host "  - $user" -ForegroundColor Red }
-}
-else {
-    Write-Host '  - None' -ForegroundColor Red
-}
-
-Write-Host 'Kept Unapproved Users:' -ForegroundColor Magenta
-if ((Get-CountAsInt $keptUnapprovedUsers) -gt 0) {
-    foreach ($user in $keptUnapprovedUsers) { Write-Host "  - $user" -ForegroundColor Red }
-}
-else {
-    Write-Host '  - None' -ForegroundColor Red
-}
-
-Write-Host 'Disabled Unapproved Users:' -ForegroundColor Magenta
-if ((Get-CountAsInt $disabledUnapprovedUsers) -gt 0) {
-    foreach ($user in $disabledUnapprovedUsers) { Write-Host "  - $user" -ForegroundColor Green }
-}
-else {
-    Write-Host '  - None' -ForegroundColor Red
-}
-
-Write-Section 'Baseline: Password and Lockout Policies'
-# Password policy
-net accounts /minpwlen:12 | Out-Null
-net accounts /maxpwage:60 | Out-Null
-net accounts /minpwage:1 | Out-Null
-net accounts /uniquepw:24 | Out-Null
-
-# Lockout policy
-net accounts /lockoutthreshold:10 | Out-Null
-net accounts /lockoutduration:30 | Out-Null
-net accounts /lockoutwindow:30 | Out-Null
-
-# NOTE: Some local policy values are not directly configurable with net accounts.
-# The script also creates a security template below to apply the remaining standard settings.
-
-Write-Section 'Local Security Policy: Security Template'
-$tempDir = Join-Path $env:TEMP 'CyberHardening'
-if (-not (Test-Path $tempDir)) {
-    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-}
-
-$infPath = Join-Path $tempDir 'CyberHardening.inf'
-@"
+    $infPath = Join-Path $tempDir 'CyberHardening.inf'
+    @"
 [Unicode]
 Unicode=yes
 
@@ -1281,333 +784,233 @@ SeBatchLogonRight = *S-1-5-32-544
 SeServiceLogonRight = 
 "@ | Set-Content -Path $infPath -Encoding Unicode
 
-# Apply the template
-secedit /configure /db $env:windir\security\database\securepc.sdb /cfg $infPath /areas SECURITYPOLICY /quiet
+    secedit /configure /db $env:windir\security\database\securepc.sdb /cfg $infPath /areas SECURITYPOLICY /quiet
 
-Write-Host 'Applied security policy template.' -ForegroundColor Green
+    auditpol /set /category:* /success:enable /failure:enable
 
-Write-Section 'Audit Policy'
-auditpol /set /category:* /success:enable /failure:enable | Out-Null
-Write-Host 'Enabled Success and Failure auditing across standard categories.' -ForegroundColor Green
-
-Write-Section 'Account Hardening'
-foreach ($user in $authorizedUsers) {
-    $localUser = Get-LocalUser -Name $user.UserName -ErrorAction SilentlyContinue
-    if (-not $localUser) {
-        Write-Log "User '$($user.UserName)' was not found on this machine. Skipping local group assignment." -Level 'WARN'
-        continue
-    }
-
-    $adminGroup = 'Administrators'
-    $userGroup = 'Users'
-
-    $isAdminMember = (Get-LocalGroupMember -Group $adminGroup -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "\\$($user.UserName)$|^$($user.UserName)$" }).Count -gt 0
-
-    if ($user.IsAdmin) {
-        if (-not $isAdminMember) {
-            if ($DryRun) {
-                Write-Log "Dry run: would add '$($user.UserName)' to Administrators." -Level 'INFO'
-            }
-            else {
-                Add-LocalGroupMember -Group $adminGroup -Member $user.UserName -ErrorAction Stop
-                Write-Log "Added '$($user.UserName)' to Administrators." -Level 'SUCCESS'
-            }
-        }
-        else {
-            Write-Log "'$($user.UserName)' is already in Administrators." -Level 'INFO'
-        }
-    }
-    else {
-        if ($isAdminMember) {
-            if ($DryRun) {
-                Write-Log "Dry run: would remove '$($user.UserName)' from Administrators." -Level 'INFO'
-            }
-            else {
-                Remove-LocalGroupMember -Group $adminGroup -Member $user.UserName -ErrorAction SilentlyContinue
-                Write-Log "Removed '$($user.UserName)' from Administrators." -Level 'SUCCESS'
-            }
-        }
-
-        $isUserMember = (Get-LocalGroupMember -Group $userGroup -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "\\$($user.UserName)$|^$($user.UserName)$" }).Count -gt 0
-        if (-not $isUserMember) {
-            if ($DryRun) {
-                Write-Log "Dry run: would add '$($user.UserName)' to Users." -Level 'INFO'
-            }
-            else {
-                Add-LocalGroupMember -Group $userGroup -Member $user.UserName -ErrorAction SilentlyContinue
-                Write-Log "Added '$($user.UserName)' to Users." -Level 'SUCCESS'
-            }
-        }
-    }
-}
-
-# Administrator account status and Guest account status are often best handled manually.
-# These are included here as a fast path, but review them before production use.
-$tempAdminName = (Get-CimInstance Win32_UserAccount -Filter "LocalAccount='True' AND SID LIKE 'S-1-5-21-%-500'" | Select-Object -First 1).Name
-if ($tempAdminName) {
-    try {
-        if ($DryRun) {
-            Write-Log "Dry run: would disable local Administrator account: $tempAdminName" -Level 'INFO'
-        }
-        else {
-            net user $tempAdminName /active:no | Out-Null
-            Write-Log "Disabled local Administrator account: $tempAdminName" -Level 'SUCCESS'
-        }
-    }
-    catch {
-        Write-Log 'Could not disable local Administrator account. Review manually.' -Level 'ERROR'
-    }
-}
-
-$guest = Get-CimInstance Win32_UserAccount -Filter "LocalAccount='True' AND Name='Guest'" | Select-Object -First 1
-if ($guest) {
-    try {
-        if ($DryRun) {
-            Write-Log 'Dry run: would disable Guest account.' -Level 'INFO'
-        }
-        else {
-            net user Guest /active:no | Out-Null
-            Write-Log 'Disabled Guest account.' -Level 'SUCCESS'
-        }
-    }
-    catch {
-        Write-Log 'Could not disable Guest account. Review manually.' -Level 'ERROR'
-    }
-}
-
-Write-Section 'Password Requirement Enforcement'
-$allLocalAccounts = Get-LocalUser -ErrorAction SilentlyContinue | Where-Object { $_.Name -notin @('Administrator', 'Guest', 'DefaultAccount', 'WDAGUtilityAccount') }
-foreach ($localAccount in $allLocalAccounts) {
-    try {
-        if ($DryRun) {
-            Write-Log "Dry run: would set password requirement for '$($localAccount.Name)' to YES." -Level 'INFO'
+    foreach ($user in $authorizedUsers) {
+        $localUser = Get-LocalUser -Name $user.UserName -ErrorAction SilentlyContinue
+        if (-not $localUser) {
             continue
         }
 
-        net user "$($localAccount.Name)" /PASSWORDREQ:YES | Out-Null
-        Write-Log "Set password requirement to YES for user '$($localAccount.Name)'." -Level 'SUCCESS'
+        $adminGroup = 'Administrators'
+        $userGroup = 'Users'
+
+        $isAdminMember = (Get-LocalGroupMember -Group $adminGroup -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "\\$($user.UserName)$|^$($user.UserName)$" }).Count -gt 0
+
+        if ($user.IsAdmin) {
+            if (-not $isAdminMember -and -not $DryRun) {
+                Add-LocalGroupMember -Group $adminGroup -Member $user.UserName -ErrorAction Stop
+            }
+        }
+        else {
+            if ($isAdminMember -and -not $DryRun) {
+                Remove-LocalGroupMember -Group $adminGroup -Member $user.UserName -ErrorAction SilentlyContinue
+            }
+
+            $isUserMember = (Get-LocalGroupMember -Group $userGroup -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "\\$($user.UserName)$|^$($user.UserName)$" }).Count -gt 0
+            if (-not $isUserMember -and -not $DryRun) {
+                Add-LocalGroupMember -Group $userGroup -Member $user.UserName -ErrorAction SilentlyContinue
+            }
+        }
     }
-    catch {
-        Write-Log "Could not enforce password requirement for '$($localAccount.Name)'. Review manually." -Level 'WARN'
+
+    $tempAdminName = (Get-CimInstance Win32_UserAccount -Filter "LocalAccount='True' AND SID LIKE 'S-1-5-21-%-500'" | Select-Object -First 1).Name
+    if ($tempAdminName -and -not $DryRun) {
+        try {
+            net user $tempAdminName /active:no
+        }
+        catch {
+            Write-Log 'Could not disable local Administrator account. Review manually.'
+        }
     }
-}
 
-Write-Section 'User Account Control and Security Options'
-$uacKeys = @(
-    @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='EnableLUA'; Value=1},
-    @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='ConsentPromptBehaviorAdmin'; Value=5},
-    @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='ConsentPromptBehaviorUser'; Value=3},
-    @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='PromptOnSecureDesktop'; Value=1},
-    @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='EnableInstallerDetection'; Value=1},
-    @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='ValidateAdminCodeSignatures'; Value=0},
-    @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='EnableVirtualization'; Value=1},
-    @{Path='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name='EnableSecureUIAPaths'; Value=1}
-)
-foreach ($entry in $uacKeys) {
-    Set-RegistryDword -Path $entry.Path -Name $entry.Name -Value $entry.Value
-}
-
-# Disable AutoPlay
-Set-RegistryDword -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers' -Name 'DisableAutoplay' -Value 1
-
-# Disable password reveal / show last user name
-Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'DontDisplayLastUserName' -Value 1
-
-# Disable system shutdown without logon
-Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'ShutdownWithoutLogon' -Value 0
-
-# Disable automatic administrative logon
-Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'DisableAutomaticAdminLogon' -Value 1
-
-# Disable one-click network discovery hints and place controls into standard security posture
-Set-RegistryDword -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer' -Name 'NoDataCollection' -Value 1
-
-Enable-WindowsSecurityBaseline
-
-Write-Section 'Services'
-$servicesToDisable = @(
-    'upnphost',
-    'Telnet',
-    'SNMPTRAP',
-    'RemoteRegistry',
-    'W32Time',
-    'Fax'
-)
-foreach ($svc in $servicesToDisable) {
-    Disable-ServiceSafely -ServiceName $svc
-}
-
-# Keep Event Collector enabled and Automatic if available
-try {
-    $svc = Get-Service -Name 'Wecsvc' -ErrorAction Stop
-    if ($svc.StartType -ne 'Automatic') {
-        Set-Service -Name 'Wecsvc' -StartupType Automatic
+    $guest = Get-CimInstance Win32_UserAccount -Filter "LocalAccount='True' AND Name='Guest'" | Select-Object -First 1
+    if ($guest -and -not $DryRun) {
+        try {
+            net user Guest /active:no
+        }
+        catch {
+            Write-Log 'Could not disable Guest account. Review manually.'
+        }
     }
-    if ($svc.Status -ne 'Running') {
-        Start-Service -Name 'Wecsvc' -ErrorAction SilentlyContinue
+
+    $allLocalAccounts = Get-LocalUser -ErrorAction SilentlyContinue | Where-Object { $_.Name -notin @('Administrator', 'Guest', 'DefaultAccount', 'WDAGUtilityAccount') }
+    foreach ($localAccount in $allLocalAccounts) {
+        if ($DryRun) { continue }
+        try {
+            net user "$($localAccount.Name)" /PASSWORDREQ:YES
+        }
+        catch {
+        }
     }
-    Write-Host 'Ensured Windows Event Collector is enabled.' -ForegroundColor Green
-}
-catch {
-    Write-Warning 'Wecsvc not found; review manual service requirements.'
-}
 
-Write-Section 'Windows Features'
-$featuresToDisable = @(
-    'TelnetClient',
-    'TelnetServer',
-    'SNMP',
-    'RIPListener',
-    'ClientForNFS',
-    'IIS-WebServerRole',
-    'IIS-WebServer',
-    'MSMQ-Server',
-    'WCF-Services45'
-)
+    $uacKeys = @(
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'EnableLUA'; Value = 1 },
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'ConsentPromptBehaviorAdmin'; Value = 5 },
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'ConsentPromptBehaviorUser'; Value = 3 },
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'PromptOnSecureDesktop'; Value = 1 },
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'EnableInstallerDetection'; Value = 1 },
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'ValidateAdminCodeSignatures'; Value = 0 },
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'EnableVirtualization'; Value = 1 },
+        @{Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'; Name = 'EnableSecureUIAPaths'; Value = 1 }
+    )
+    foreach ($entry in $uacKeys) {
+        Set-RegistryDword -Path $entry.Path -Name $entry.Name -Value $entry.Value
+    }
 
-foreach ($feature in $featuresToDisable) {
-    Disable-OptionalFeatureSafely -FeatureName $feature
-}
+    Set-RegistryDword -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers' -Name 'DisableAutoplay' -Value 1
 
-try {
-    Disable-WindowsOptionalFeature -Online -FeatureName 'SMB1Protocol' -NoRestart -ErrorAction Stop | Out-Null
-    Write-Host 'Disabled SMB1.' -ForegroundColor Green
-}
-catch {
-    Write-Warning 'SMB1 feature not available or already disabled.'
-}
+    Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'DontDisplayLastUserName' -Value 1
 
-Write-Section 'Network Hardening'
-# Disable IPv6 on all adapters while leaving IPv4 enabled
-Get-NetAdapter | ForEach-Object {
+    Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'ShutdownWithoutLogon' -Value 0
+
+    Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'DisableAutomaticAdminLogon' -Value 1
+
+    Set-RegistryDword -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer' -Name 'NoDataCollection' -Value 1
+
+    Enable-WindowsSecurityBaseline
+
+    $servicesToDisable = @(
+        'upnphost',
+        'Telnet',
+        'SNMPTRAP',
+        'RemoteRegistry',
+        'W32Time',
+        'Fax'
+    )
+    foreach ($svc in $servicesToDisable) {
+        Disable-ServiceSafely -ServiceName $svc
+    }
+
+    # Keep event collection on
     try {
-        Disable-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6 -ErrorAction Stop
-        Write-Host "Disabled IPv6 binding on adapter: $($_.Name)" -ForegroundColor Green
+        $svc = Get-Service -Name 'Wecsvc' -ErrorAction Stop
+        if ($svc.StartType -ne 'Automatic') {
+            Set-Service -Name 'Wecsvc' -StartupType Automatic
+        }
+        if ($svc.Status -ne 'Running') {
+            Start-Service -Name 'Wecsvc' -ErrorAction SilentlyContinue
+        }
     }
     catch {
-        Write-Warning "Could not disable IPv6 on adapter $($_.Name)"
+        Write-Host 'Wecsvc Error' -ForegroundColor Red
     }
-}
 
-# Disable NetBIOS and enable DNS registration controls on network interfaces
-Get-DnsClient | ForEach-Object {
+    $featuresToDisable = @(
+        'TelnetClient',
+        'TelnetServer',
+        'SNMP',
+        'RIPListener',
+        'ClientForNFS',
+        'IIS-WebServerRole',
+        'IIS-WebServer',
+        'MSMQ-Server',
+        'WCF-Services45'
+    )
+
+    foreach ($feature in $featuresToDisable) {
+        Disable-OptionalFeatureSafely -FeatureName $feature
+    }
+
     try {
-        Set-DnsClient -InterfaceIndex $_.InterfaceIndex -RegisterThisConnectionsAddress $false -ErrorAction Stop
+        Disable-WindowsOptionalFeature -Online -FeatureName 'SMB1Protocol' -NoRestart -ErrorAction Stop
     }
     catch {
-        Write-Warning "Could not update DNS client registration on interface $($_.InterfaceIndex)"
+        Write-Host 'SMB1 Error' -ForegroundColor Red
     }
-}
 
-# Disable UPnP out of the registry if present
-$upnpPath = 'HKLM:\Software\Microsoft\DirectplayNATHelp\DPNHUPnP'
-if (-not (Test-Path $upnpPath)) {
-    New-Item -Path $upnpPath -Force | Out-Null
-}
-Set-RegistryDword -Path $upnpPath -Name 'UPnPMode' -Value 2
-
-# Disable Wi-Fi Sense related settings if present
-$wifiSenseRoot = 'HKLM:\Software\Microsoft\WlanSvc\Features'
-if (Test-Path $wifiSenseRoot) {
-    Set-RegistryDword -Path $wifiSenseRoot -Name 'AutoConnectAllowed' -Value 0
-}
-
-# Block MS Edge / Search / known app traffic on the firewall (best effort)
-$firewallRules = @(
-    'Microsoft Edge',
-    'Search',
-    'MSN Money',
-    'MSN Sports',
-    'MSN News',
-    'MSN Weather',
-    'Microsoft Photos',
-    'Xbox'
-)
-foreach ($rule in $firewallRules) {
-    try {
-        Get-NetFirewallRule -DisplayName $rule -ErrorAction Stop | Disable-NetFirewallRule
-        Write-Host "Disabled firewall rule: $rule" -ForegroundColor Green
+    Get-NetAdapter | ForEach-Object {
+        try {
+            Disable-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6 -ErrorAction Stop
+            Write-Host "Disabled IPv6 binding on adapter: $($_.Name)"
+        }
+        catch {
+            Write-Host "Could not disable IPv6 on adapter $($_.Name)"
+        }
     }
-    catch {
-        Write-Warning "Firewall rule '$rule' not found; skipping."
+
+    Get-DnsClient | ForEach-Object {
+        try {
+            Set-DnsClient -InterfaceIndex $_.InterfaceIndex -RegisterThisConnectionsAddress $false -ErrorAction Stop
+        }
+        catch {
+            Write-Host "Could not update DNS client registration on interface $($_.InterfaceIndex)"
+        }
     }
-}
 
-# Disable LAN Manager and SMB signing not always accessible, but keep the config in place.
-Set-RegistryDword -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0' -Name 'NtlmMinClientSec' -Value 537395200
-Set-RegistryDword -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0' -Name 'NtlmMinServerSec' -Value 537395200
-
-Write-Section 'File Shares / Network Access'
-# Best effort: remove unauthorized shares. This does not touch ADMIN$, C$, or IPC$ by default.
-$defaultShares = @('ADMIN$', 'C$', 'IPC$')
-$shares = Get-SmbShare | Where-Object { $_.Name -notin $defaultShares }
-foreach ($share in $shares) {
-    try {
-        Remove-SmbShare -Name $share.Name -Force
-        Write-Host "Removed unauthorized share: $($share.Name)" -ForegroundColor Green
+    $upnpPath = 'HKLM:\Software\Microsoft\DirectplayNATHelp\DPNHUPnP'
+    if (-not (Test-Path $upnpPath)) {
+        New-Item -Path $upnpPath -Force
     }
-    catch {
-        Write-Warning "Could not remove share $($share.Name)"
+    Set-RegistryDword -Path $upnpPath -Name 'UPnPMode' -Value 2
+
+    $wifiSenseRoot = 'HKLM:\Software\Microsoft\WlanSvc\Features'
+    if (Test-Path $wifiSenseRoot) {
+        Set-RegistryDword -Path $wifiSenseRoot -Name 'AutoConnectAllowed' -Value 0
     }
-}
 
-Write-Section 'Browser / Adobe / Java Cleanup'
-# This is a manual review item because browser/toolbar preferences vary by environment.
-Write-Host 'Review browsers and third-party toolbars manually. Update Flash/Reader/Java plugins and remove unauthorized toolbars.' -ForegroundColor Red
+    $firewallRules = @(
+        'Microsoft Edge',
+        'Search',
+        'MSN Money',
+        'MSN Sports',
+        'MSN News',
+        'MSN Weather',
+        'Microsoft Photos',
+        'Xbox'
+    )
+    foreach ($rule in $firewallRules) {
+        try {
+            Get-NetFirewallRule -DisplayName $rule -ErrorAction Stop | Disable-NetFirewallRule
+            Write-Host "Disabled firewall rule: $rule"
+        }
+        catch {
+            Write-Host "Firewall rule '$rule' not found; skipping."
+        }
+    }
 
-Write-Section 'Startup / Login Hardening'
-# Disable OneDrive startup
-$oneDrive = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-if (Test-Path $oneDrive) {
-    Remove-ItemProperty -Path $oneDrive -Name 'OneDrive' -ErrorAction SilentlyContinue
-}
+    Set-RegistryDword -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0' -Name 'NtlmMinClientSec' -Value 537395200
+    Set-RegistryDword -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0' -Name 'NtlmMinServerSec' -Value 537395200
 
-# Disable screen saver lock after 10 minutes and require logon screen on resume
-Set-RegistryDword -Path 'HKCU:\Control Panel\Desktop' -Name 'ScreenSaveTimeOut' -Value 600
-Set-RegistryString -Path 'HKCU:\Control Panel\Desktop' -Name 'SCRNSAVE.EXE' -Value 'logon.scr'
-Set-RegistryDword -Path 'HKCU:\Control Panel\Desktop' -Name 'ScreenSaverIsSecure' -Value 1
-Set-RegistryDword -Path 'HKCU:\Control Panel\Desktop' -Name 'ScreenSaveActive' -Value 1
-Set-RegistryString -Path 'HKCU:\Control Panel\Desktop' -Name 'UserPreferencesMask' -Value '90 12 0 0 0 0 0 0'
+    # Remove extra shares, keep the defaults
+    $defaultShares = @('ADMIN$', 'C$', 'IPC$')
+    $shares = Get-SmbShare | Where-Object { $_.Name -notin $defaultShares }
+    foreach ($share in $shares) {
+        try {
+            Remove-SmbShare -Name $share.Name -Force
+            Write-Host "Removed unauthorized share: $($share.Name)"
+        }
+        catch {
+            Write-Host "Could not remove share $($share.Name)"
+        }
+    }
 
-# Confirm autologin is disabled
-Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name 'AutoAdminLogon' -Value 0
-Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name 'ForceAutoLogon' -Value 0
-Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name 'AutoLogonCount' -Value 0
+    # Browser cleanup is manual
+    Write-Host 'Review browsers and third-party toolbars manually. Update Flash/Reader/Java plugins and remove unauthorized toolbars.'
 
-# Hide user switching and disable Fast User Switching
-Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'HideFastUserSwitching' -Value 1
+    $oneDrive = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    if (Test-Path $oneDrive) {
+        Remove-ItemProperty -Path $oneDrive -Name 'OneDrive' -ErrorAction SilentlyContinue
+    }
 
-Write-Section 'Firewall / Defender / PowerShell Hardening'
-# Enable UAC and PowerShell logging best effort
-Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'EnableLUA' -Value 1
-Set-RegistryDword -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -Name 'EnableScriptBlockLogging' -Value 1
+    Set-RegistryDword -Path 'HKCU:\Control Panel\Desktop' -Name 'ScreenSaveTimeOut' -Value 600
+    Set-RegistryString -Path 'HKCU:\Control Panel\Desktop' -Name 'SCRNSAVE.EXE' -Value 'logon.scr'
+    Set-RegistryDword -Path 'HKCU:\Control Panel\Desktop' -Name 'ScreenSaverIsSecure' -Value 1
+    Set-RegistryDword -Path 'HKCU:\Control Panel\Desktop' -Name 'ScreenSaveActive' -Value 1
+    Set-RegistryString -Path 'HKCU:\Control Panel\Desktop' -Name 'UserPreferencesMask' -Value '90 12 0 0 0 0 0 0'
 
-# Full security baseline is applied in the earlier baseline section, and this final pass keeps the most critical keys in place.
-Write-Host 'Windows firewall, Defender, and core security controls have been enabled to the strongest supported baseline.' -ForegroundColor Green
+    Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name 'AutoAdminLogon' -Value 0
+    Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name 'ForceAutoLogon' -Value 0
+    Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name 'AutoLogonCount' -Value 0
 
-Write-Section 'Task Scheduler / Cleanup'
-# Remove common unauthorized scheduled tasks is not broadly safe; review manually.
-Write-Host 'Review scheduled tasks and startup items manually for unauthorized entries.' -ForegroundColor Red
+    Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'HideFastUserSwitching' -Value 1
 
-Write-Section 'Manual Review Items'
-$manualItems = @(
-    'Verify the README and authorized user list before changing domain or local admin memberships.',
-    'Review all unauthorized users, disabled accounts, and admin group membership.',
-    'Validate RDP group membership against the README.',
-    'Inspect all Windows Services not covered above and confirm they match the required baseline.',
-    'Check Windows Features and any IIS or FTP settings against the README.',
-    'Review browser plugins, toolbars, and Java/Flash versions in each browser.',
-    'Verify Wi-Fi Sense and network adapter settings on every device profile.',
-    'Check interface-specific firewall inbound rules and any startup app exceptions.',
-    'Confirm the systems share count matches README requirements and remove any unauthorized shares.',
-    'Validate screen lock / screen saver policy applies to all users.',
-    'Review registry and GPO exceptions that could impact local policy enforcement.'
-)
-for ($i = 0; $i -lt $manualItems.Count; $i++) {
-    Write-Host ($i + 1).ToString() + '. ' + $manualItems[$i] -ForegroundColor Red
-}
+    Set-RegistryDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'EnableLUA' -Value 1
+    Set-RegistryDword -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging' -Name 'EnableScriptBlockLogging' -Value 1
 
-Write-Host "`nHardening script completed. Review the manual items above before final sign-off." -ForegroundColor Green
+    Write-Host 'Hardening finished.'
 }
 
 if ($Action) {
@@ -1635,15 +1038,11 @@ if ($Action) {
         'harden' {
             Invoke-CyberHardening
         }
-        'uninstall-apps' {
-            Uninstall-ApplicationList -Applications $AppNames
-        }
         default {
-            throw "Unknown action '$Action'. Valid actions: create-group, create-user, add-to-group, remove-from-group, add-to-rdp, harden, uninstall-apps."
+            throw "Unknown action '$Action'. Valid actions: create-group, create-user, add-to-group, remove-from-group, add-to-rdp, harden."
         }
     }
     exit 0
 }
 
 Invoke-CyberToolMenu
-
